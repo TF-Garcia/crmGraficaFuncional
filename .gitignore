@@ -1,5 +1,8 @@
 node_modules/
 dist/
+bin/
+obj/
 .env
 .env.local
 npm-debug.log*
+*.log

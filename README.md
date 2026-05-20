@@ -35,10 +35,22 @@ npm run build
 - Pagamentos sao simulados em `src/services/paymentService.js`.
 - Upload de arte captura o nome do arquivo, mas ainda nao envia para storage/API.
 
+## Backend real adicionado
+
+Foi criada a API em `API/PrintFlowApi`, seguindo a organizacao do BarberStyle:
+
+- ASP.NET Core com controllers REST.
+- Entity Framework com MySQL real via Pomelo.
+- Migration inicial em `API/PrintFlowApi/Migrations`.
+- Seed inicial de admin, cliente, catalogo e estoque.
+- JWT para clientes/admin/producao/atendimento/financeiro.
+- Endpoints para catalogo, calculo de orcamento, pedidos, admin, estoque e Mercado Pago.
+- Checkout real do Mercado Pago preparado para ambiente sandbox/producao.
+
+Veja `API/README.md` para criar o banco MySQL local, aplicar migrations e configurar VPS/Hostinger.
+
 ## Integracoes futuras
 
-- Trocar mocks por API REST/GraphQL nas paginas e servicos.
-- Conectar autenticacao real com perfis Cliente, Admin, Producao, Atendimento e Financeiro.
-- Persistir catalogo, pedidos, estoque e movimentacoes em banco de dados.
-- Substituir `paymentService.js` por integracao real com Mercado Pago ou Asaas, seguindo a estrutura de servico usada no BarberStyle.
+- Ligar as telas do React aos endpoints REST criados na API.
 - Enviar arquivos para storage privado e registrar historico de aprovacao de arte por pedido.
+- Finalizar webhook em dominio publico HTTPS e homologar credenciais reais do Mercado Pago.

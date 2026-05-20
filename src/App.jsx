@@ -200,15 +200,6 @@ function LandingPage({ goto, startQuote }) {
             <span><CalendarClock size={16} /> Prazo estimado</span>
           </div>
         </div>
-        <div className="hero-board" aria-label="Resumo operacional">
-          <div className="board-header">
-            <span>Hoje</span>
-            <strong>27 pedidos ativos</strong>
-          </div>
-          <MetricCard label="Em produção" value="12" tone="green" />
-          <MetricCard label="Orçamentos pendentes" value="8" tone="amber" />
-          <MetricCard label="Pagamentos em aberto" value={formatMoney(4180)} tone="blue" />
-        </div>
       </section>
 
       <section className="section">
