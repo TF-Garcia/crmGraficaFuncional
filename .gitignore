@@ -4,5 +4,6 @@ bin/
 obj/
 .env
 .env.local
+.env.vps
 npm-debug.log*
 *.log
