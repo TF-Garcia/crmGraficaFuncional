@@ -31,7 +31,8 @@ builder.Services.AddDbContext<PrintFlowDbContext>(options =>
 
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<QuoteService>();
-builder.Services.AddScoped<MercadoPagoService>();
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<SecurityService>();
 
 var jwtSecret = builder.Configuration["Jwt:Secret"];
 if (string.IsNullOrWhiteSpace(jwtSecret))

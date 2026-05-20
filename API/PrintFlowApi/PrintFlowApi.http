@@ -1,6 +1,6 @@
 @PrintFlowApi_HostAddress = http://localhost:5179
 
-GET {{PrintFlowApi_HostAddress}}/weatherforecast/
+GET {{PrintFlowApi_HostAddress}}/
 Accept: application/json
 
 ###

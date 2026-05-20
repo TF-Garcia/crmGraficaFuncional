@@ -76,7 +76,7 @@ public class OrdersController(PrintFlowDbContext db, QuoteService quoteService) 
             Urgency = request.Urgency,
             DeliveryMode = request.Delivery,
             PaymentMethod = request.PaymentMethod,
-            PaymentStatus = request.PaymentMethod == PaymentMethod.Pickup ? PaymentStatus.PendingPickup : PaymentStatus.Pending,
+            PaymentStatus = request.PaymentMethod == PaymentMethod.Pickup ? PaymentStatus.CounterPayment : PaymentStatus.Pending,
             Status = request.PaymentMethod == PaymentMethod.Pickup ? OrderStatus.WaitingArtwork : OrderStatus.WaitingPayment,
             Subtotal = quote.Subtotal,
             UrgencyFee = quote.UrgencyFee,
@@ -137,7 +137,6 @@ public class OrdersController(PrintFlowDbContext db, QuoteService quoteService) 
             order.PaymentMethod.ToString(),
             order.Total,
             order.Deadline,
-            order.Payment?.CheckoutUrl,
             order.CreatedAt);
     }
 }

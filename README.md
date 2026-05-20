@@ -1,8 +1,17 @@
-﻿# crmGraficaFuncional
+# crmGraficaFuncional
 
-Plataforma demonstrativa completa para grafica, armazem e empresas com catalogo, orcamento, pedidos, estoque, producao, pagamentos e CRM administrativo.
+Plataforma real para grafica com catalogo, orcamento, pedidos, estoque, producao, pagamentos preparados, recuperacao de senha e CRM administrativo.
 
 ## Como rodar
+
+API:
+
+```bash
+cd API/PrintFlowApi
+dotnet run
+```
+
+Front:
 
 ```bash
 npm install
@@ -11,46 +20,41 @@ npm run dev
 
 Depois acesse `http://localhost:5173`.
 
-Para validar build de producao:
+No front, configure `VITE_API_BASE_URL` quando a API nao estiver no padrao `http://localhost:5179`.
+
+Para validar builds:
 
 ```bash
+dotnet build API/PrintFlowApi
 npm run build
 ```
 
 ## O que esta pronto
 
-- Landing page publica responsiva com CTA de orcamento, WhatsApp, catalogo e portfolio.
-- Catalogo com categorias, imagens, detalhes, preco base, prazo base e botao de orcamento.
-- Orcamento automatico com regras simuladas para quantidade, tamanho, material, impressao, acabamento, urgencia e entrega.
-- Login/cadastro simulados com entrada como cliente ou administrador.
-- Area do cliente com dashboard, pedidos, orcamentos, perfil, reenvio de arte, aprovacao e atendimento.
-- Painel admin com sidebar, dashboard, pedidos, clientes, produtos, estoque, producao Kanban, pagamentos, entregas, relatorios e configuracoes.
-- Camada de pagamento simulada para Pix, cartao e pagamento na retirada, preparada para Mercado Pago ou Asaas.
+- Landing page publica conectada ao catalogo real.
+- Cadastro/login reais com JWT.
+- Recuperacao de senha por email SMTP.
+- Catalogo e orcamento calculados pela API.
+- Criacao de orcamentos salvos e pedidos reais no MySQL.
+- Area do cliente com pedidos, orcamentos e perfil editavel.
+- Painel admin com dashboard, pedidos, clientes, estoque, producao, pagamentos manuais e configuracoes.
+- Estrutura de pagamento preparada, sem gateway real nesta etapa.
 
-## Pontos simulados
+## Pontos pendentes
 
-- Autenticacao e permissoes usam `localStorage`.
-- Dados vem de `src/data/mockData.js`.
-- Orcamentos sao calculados em `src/services/quoteService.js`.
-- Pagamentos sao simulados em `src/services/paymentService.js`.
-- Upload de arte captura o nome do arquivo, mas ainda nao envia para storage/API.
+- Upload de arte ainda registra apenas o nome do arquivo; storage privado fica para a proxima etapa.
+- CRUD visual completo de produtos/regras de orcamento ainda sera expandido; o catalogo ja vem do banco.
+- Pagamento Pix/cartao ainda nao integra gateway, apenas registra status/metodo para etapa futura.
 
-## Backend real adicionado
+## Backend
 
 Foi criada a API em `API/PrintFlowApi`, seguindo a organizacao do BarberStyle:
 
 - ASP.NET Core com controllers REST.
 - Entity Framework com MySQL real via Pomelo.
-- Migration inicial em `API/PrintFlowApi/Migrations`.
-- Seed inicial de admin, cliente, catalogo e estoque.
-- JWT para clientes/admin/producao/atendimento/financeiro.
-- Endpoints para catalogo, calculo de orcamento, pedidos, admin, estoque e Mercado Pago.
-- Checkout real do Mercado Pago preparado para ambiente sandbox/producao.
+- Migrations em `API/PrintFlowApi/Migrations`.
+- Seed inicial de admin, cliente, catalogo, estoque e configuracoes.
+- JWT para cliente/admin e estrutura para producao/atendimento/financeiro.
+- Endpoints para catalogo, calculo de orcamento, pedidos, admin, estoque, configuracoes, pagamento manual e recuperacao de senha.
 
 Veja `API/README.md` para criar o banco MySQL local, aplicar migrations e configurar VPS/Hostinger.
-
-## Integracoes futuras
-
-- Ligar as telas do React aos endpoints REST criados na API.
-- Enviar arquivos para storage privado e registrar historico de aprovacao de arte por pedido.
-- Finalizar webhook em dominio publico HTTPS e homologar credenciais reais do Mercado Pago.

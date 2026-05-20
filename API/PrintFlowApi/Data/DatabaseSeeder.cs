@@ -72,6 +72,19 @@ public static class DatabaseSeeder
                 new InventoryItem { Name = "Bobina adesiva", Category = "Vinil", Available = 44, Unit = "m", Minimum = 20, Supplier = "Print Suprimentos", UnitCost = 31m });
         }
 
+        if (!await db.SystemSettings.AnyAsync())
+        {
+            db.SystemSettings.Add(new SystemSettings
+            {
+                CompanyName = "Vera Grafica Digital",
+                CompanyEmail = "atendimento@printflowpro.com.br",
+                CompanyPhone = "(11) 98888-2026",
+                AutoStockDeductionEnabled = false,
+                StockDeductionTriggerStatus = OrderStatus.InProduction,
+                RequireAdminPasswordForSensitiveActions = false
+            });
+        }
+
         await db.SaveChangesAsync();
     }
 

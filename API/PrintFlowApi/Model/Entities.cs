@@ -18,8 +18,11 @@ public enum OrderStatus
     PaymentConfirmed,
     WaitingArtwork,
     ArtworkReview,
+    ArtworkRejected,
     WaitingCustomerApproval,
+    ArtworkApproved,
     InProduction,
+    Finishing,
     ReadyForPickup,
     OutForDelivery,
     Finished,
@@ -36,10 +39,9 @@ public enum PaymentMethod
 public enum PaymentStatus
 {
     Pending,
-    WaitingProvider,
+    CounterPayment,
     Paid,
     Failed,
-    PendingPickup,
     Refunded,
     Cancelled
 }
@@ -58,11 +60,14 @@ public class User
     [MaxLength(30)] public string Phone { get; set; } = string.Empty;
     [MaxLength(30)] public string? Document { get; set; }
     [MaxLength(260)] public string? Address { get; set; }
+    [MaxLength(40)] public string? ContactPreference { get; set; }
     [MaxLength(300)] public string PasswordHash { get; set; } = string.Empty;
     public UserRole Role { get; set; } = UserRole.Client;
     public bool Active { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public List<Order> Orders { get; set; } = [];
+    public List<Quote> Quotes { get; set; } = [];
 }
 
 public class Product
@@ -76,8 +81,13 @@ public class Product
     public decimal BasePrice { get; set; }
     public int BaseDeadlineDays { get; set; }
     public bool AllowUpload { get; set; } = true;
+    public bool AllowPickup { get; set; } = true;
+    public bool AllowDelivery { get; set; } = true;
     public bool AllowPickupPayment { get; set; }
+    public bool RequiresAdvancePayment { get; set; }
     public bool Active { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public List<ProductOption> Options { get; set; } = [];
     public List<ProductQuantity> Quantities { get; set; } = [];
 }
@@ -129,9 +139,47 @@ public class Order
     [MaxLength(120)] public string? Owner { get; set; }
     [MaxLength(30)] public string Priority { get; set; } = "Normal";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public List<OrderFile> Files { get; set; } = [];
     public List<OrderHistory> History { get; set; } = [];
     public Payment? Payment { get; set; }
+}
+
+public enum QuoteStatus
+{
+    Draft,
+    Saved,
+    ConvertedToOrder,
+    Expired,
+    Cancelled
+}
+
+public class Quote
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(24)] public string Number { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
+    public User? User { get; set; }
+    public Guid ProductId { get; set; }
+    public Product? Product { get; set; }
+    public int Quantity { get; set; }
+    [MaxLength(120)] public string Size { get; set; } = string.Empty;
+    [MaxLength(120)] public string Material { get; set; } = string.Empty;
+    [MaxLength(120)] public string PrintMode { get; set; } = string.Empty;
+    [MaxLength(120)] public string Finishing { get; set; } = string.Empty;
+    [MaxLength(30)] public string Urgency { get; set; } = "normal";
+    public DeliveryMode DeliveryMode { get; set; }
+    public QuoteStatus Status { get; set; } = QuoteStatus.Saved;
+    public decimal Subtotal { get; set; }
+    public decimal UrgencyFee { get; set; }
+    public decimal DeliveryFee { get; set; }
+    public decimal Total { get; set; }
+    public int EstimatedDays { get; set; }
+    [MaxLength(1000)] public string? Notes { get; set; }
+    public Guid? ConvertedOrderId { get; set; }
+    public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddDays(15);
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class OrderFile
@@ -164,6 +212,22 @@ public class InventoryItem
     public decimal Minimum { get; set; }
     [MaxLength(140)] public string Supplier { get; set; } = string.Empty;
     public decimal UnitCost { get; set; }
+    public bool Active { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class StockMovement
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid InventoryItemId { get; set; }
+    public InventoryItem? InventoryItem { get; set; }
+    [MaxLength(30)] public string Type { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    [MaxLength(300)] public string Reason { get; set; } = string.Empty;
+    public Guid? OrderId { get; set; }
+    public Guid? CreatedById { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class Payment
@@ -176,8 +240,36 @@ public class Payment
     public decimal Amount { get; set; }
     [MaxLength(40)] public string Provider { get; set; } = "manual";
     [MaxLength(120)] public string? ProviderReference { get; set; }
-    [MaxLength(900)] public string? CheckoutUrl { get; set; }
-    [MaxLength(80)] public string? MercadoPagoPaymentId { get; set; }
+    [MaxLength(120)] public string? TransactionId { get; set; }
+    [MaxLength(900)] public string? ReceiptUrl { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? PaidAt { get; set; }
+}
+
+public class SystemSettings
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(140)] public string CompanyName { get; set; } = "Vera Grafica Digital";
+    [MaxLength(180)] public string CompanyEmail { get; set; } = "atendimento@printflowpro.com.br";
+    [MaxLength(30)] public string CompanyPhone { get; set; } = "(11) 98888-2026";
+    public bool RequireAdminPasswordForSensitiveActions { get; set; }
+    [MaxLength(300)] public string? AdminActionPasswordHash { get; set; }
+    public bool AutoStockDeductionEnabled { get; set; }
+    public OrderStatus StockDeductionTriggerStatus { get; set; } = OrderStatus.InProduction;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class PasswordResetToken
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
+    public User? User { get; set; }
+    [MaxLength(128)] public string TokenHash { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? UsedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [MaxLength(80)] public string? IpAddress { get; set; }
+    [MaxLength(400)] public string? UserAgent { get; set; }
 }

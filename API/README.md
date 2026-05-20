@@ -1,6 +1,6 @@
 # PrintFlow API
 
-API real do CRM da grafica, criada seguindo a estrutura do BarberStyle: ASP.NET Core, controllers REST, JWT, Entity Framework, migrations, seed inicial e Mercado Pago preparado para pagamento real.
+API real do CRM da grafica, criada seguindo a estrutura do BarberStyle: ASP.NET Core, controllers REST, JWT, Entity Framework, migrations, seed inicial, recuperacao de senha por email e pagamentos preparados para integracao futura.
 
 ## Banco local MySQL
 
@@ -44,10 +44,14 @@ Jwt__Issuer="PrintFlowApi"
 Jwt__Audience="PrintFlowFrontend"
 Jwt__Secret="UMA_CHAVE_LONGA_COM_MAIS_DE_32_CARACTERES"
 Cors__Origins__0="https://SEU-FRONT.vercel.app"
-MercadoPago__AccessToken="APP_USR-..."
-MercadoPago__PublicBaseUrl="https://api.seu-dominio.com.br"
-MercadoPago__FrontendBaseUrl="https://SEU-FRONT.vercel.app"
-MercadoPago__UseSandbox="false"
+FrontendUrl="https://SEU-FRONT.vercel.app"
+Smtp__Host="smtp.hostinger.com"
+Smtp__Port="465"
+Smtp__User="suporte@seudominio.com"
+Smtp__Password="SENHA_SMTP"
+Smtp__FromEmail="suporte@seudominio.com"
+Smtp__FromName="CRM Grafica Modelo"
+Smtp__EnableSsl="true"
 ```
 
 ## Vercel
@@ -62,17 +66,26 @@ VITE_API_BASE_URL=https://api.seu-dominio.com.br
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `GET /api/perfil`
+- `PUT /api/perfil`
 - `GET /api/catalogo/produtos`
 - `POST /api/orcamentos/calcular`
+- `POST /api/orcamentos`
+- `GET /api/orcamentos/meus`
+- `POST /api/orcamentos/{id}/converter`
 - `POST /api/pedidos`
 - `GET /api/pedidos/meus`
-- `POST /api/pagamentos/mercado-pago/preferencia`
-- `POST /api/pagamentos/mercado-pago/webhook`
+- `POST /api/pagamentos/{orderId}/confirmar-manual`
 - `GET /api/admin/dashboard`
 - `GET /api/admin/pedidos`
 - `GET /api/admin/clientes`
 - `GET /api/admin/estoque`
+- `POST /api/admin/estoque/movimentacoes`
+- `GET /api/admin/configuracoes`
+- `PUT /api/admin/configuracoes`
 
-## Pagamentos reais
+## Pagamentos
 
-O fluxo Mercado Pago ja cria preferencia, salva `ProviderReference`, redireciona para checkout e recebe webhook. Para producao, falta apenas preencher `MercadoPago__AccessToken`, apontar `PublicBaseUrl` para a API publica com HTTPS e cadastrar o webhook no painel do Mercado Pago.
+Nao ha gateway ativo nesta etapa. A tabela de pagamentos existe e o admin/financeiro pode confirmar pagamento manualmente. Pix/cartao ficam apenas como metodos preparados para integracao futura.

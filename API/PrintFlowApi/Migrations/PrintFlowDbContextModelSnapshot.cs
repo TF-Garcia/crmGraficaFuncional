@@ -28,6 +28,9 @@ namespace PrintFlowApi.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<bool>("Active")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<decimal>("Available")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
@@ -36,6 +39,9 @@ namespace PrintFlowApi.Migrations
                         .IsRequired()
                         .HasMaxLength(90)
                         .HasColumnType("varchar(90)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<decimal>("Minimum")
                         .HasPrecision(12, 2)
@@ -59,6 +65,9 @@ namespace PrintFlowApi.Migrations
                     b.Property<decimal>("UnitCost")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -148,6 +157,9 @@ namespace PrintFlowApi.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Urgency")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -228,6 +240,46 @@ namespace PrintFlowApi.Migrations
                     b.ToTable("OrderHistories");
                 });
 
+            modelBuilder.Entity("PrintFlowApi.Model.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(400)
+                        .HasColumnType("varchar(400)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PasswordResetTokens");
+                });
+
             modelBuilder.Entity("PrintFlowApi.Model.Payment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -238,16 +290,8 @@ namespace PrintFlowApi.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 
-                    b.Property<string>("CheckoutUrl")
-                        .HasMaxLength(900)
-                        .HasColumnType("varchar(900)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<string>("MercadoPagoPaymentId")
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
 
                     b.Property<int>("Method")
                         .HasColumnType("int");
@@ -267,8 +311,19 @@ namespace PrintFlowApi.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("varchar(120)");
 
+                    b.Property<string>("ReceiptUrl")
+                        .HasMaxLength(900)
+                        .HasColumnType("varchar(900)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<string>("TransactionId")
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -289,6 +344,12 @@ namespace PrintFlowApi.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("AllowDelivery")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("AllowPickup")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("AllowPickupPayment")
                         .HasColumnType("tinyint(1)");
 
@@ -307,6 +368,9 @@ namespace PrintFlowApi.Migrations
                         .HasMaxLength(90)
                         .HasColumnType("varchar(90)");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(900)
@@ -322,10 +386,16 @@ namespace PrintFlowApi.Migrations
                         .HasMaxLength(140)
                         .HasColumnType("varchar(140)");
 
+                    b.Property<bool>("RequiresAdvancePayment")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasMaxLength(90)
                         .HasColumnType("varchar(90)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -387,6 +457,188 @@ namespace PrintFlowApi.Migrations
                     b.ToTable("ProductQuantities");
                 });
 
+            modelBuilder.Entity("PrintFlowApi.Model.Quote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ConvertedOrderId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("DeliveryFee")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("DeliveryMode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EstimatedDays")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Finishing")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("Material")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<string>("PrintMode")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Size")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Urgency")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<decimal>("UrgencyFee")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Quotes");
+                });
+
+            modelBuilder.Entity("PrintFlowApi.Model.StockMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryItemId");
+
+                    b.ToTable("StockMovements");
+                });
+
+            modelBuilder.Entity("PrintFlowApi.Model.SystemSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AdminActionPasswordHash")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<bool>("AutoStockDeductionEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("CompanyEmail")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("varchar(180)");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasMaxLength(140)
+                        .HasColumnType("varchar(140)");
+
+                    b.Property<string>("CompanyPhone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("RequireAdminPasswordForSensitiveActions")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("StockDeductionTriggerStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SystemSettings");
+                });
+
             modelBuilder.Entity("PrintFlowApi.Model.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -399,6 +651,10 @@ namespace PrintFlowApi.Migrations
                     b.Property<string>("Address")
                         .HasMaxLength(260)
                         .HasColumnType("varchar(260)");
+
+                    b.Property<string>("ContactPreference")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -429,6 +685,9 @@ namespace PrintFlowApi.Migrations
 
                     b.Property<int>("Role")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -479,6 +738,17 @@ namespace PrintFlowApi.Migrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("PrintFlowApi.Model.PasswordResetToken", b =>
+                {
+                    b.HasOne("PrintFlowApi.Model.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("PrintFlowApi.Model.Payment", b =>
                 {
                     b.HasOne("PrintFlowApi.Model.Order", "Order")
@@ -512,6 +782,36 @@ namespace PrintFlowApi.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("PrintFlowApi.Model.Quote", b =>
+                {
+                    b.HasOne("PrintFlowApi.Model.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PrintFlowApi.Model.User", "User")
+                        .WithMany("Quotes")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PrintFlowApi.Model.StockMovement", b =>
+                {
+                    b.HasOne("PrintFlowApi.Model.InventoryItem", "InventoryItem")
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InventoryItem");
+                });
+
             modelBuilder.Entity("PrintFlowApi.Model.Order", b =>
                 {
                     b.Navigation("Files");
@@ -531,6 +831,8 @@ namespace PrintFlowApi.Migrations
             modelBuilder.Entity("PrintFlowApi.Model.User", b =>
                 {
                     b.Navigation("Orders");
+
+                    b.Navigation("Quotes");
                 });
 #pragma warning restore 612, 618
         }
