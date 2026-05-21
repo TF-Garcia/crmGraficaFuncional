@@ -68,8 +68,6 @@ public class AdminController(PrintFlowDbContext db, SecurityService securityServ
     public async Task<ActionResult<ProductResponse>> UpdateProduct(Guid id, UpsertProductRequest request, CancellationToken cancellationToken)
     {
         var product = await db.Products
-            .Include(item => item.Options)
-            .Include(item => item.Quantities)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (product is null)
@@ -83,8 +81,24 @@ public class AdminController(PrintFlowDbContext db, SecurityService securityServ
             return Conflict(new { message = "Slug ja cadastrado." });
         }
 
-        ApplyProduct(product, request);
+        ApplyProductFields(product, request);
+        db.ProductOptions.RemoveRange(await db.ProductOptions.Where(option => option.ProductId == id).ToListAsync(cancellationToken));
+        db.ProductQuantities.RemoveRange(await db.ProductQuantities.Where(quantity => quantity.ProductId == id).ToListAsync(cancellationToken));
         await db.SaveChangesAsync(cancellationToken);
+
+        db.ProductQuantities.AddRange(BuildQuantities(id, request.Quantities));
+        db.ProductOptions.AddRange(BuildOptions(id, "size", request.Sizes));
+        db.ProductOptions.AddRange(BuildOptions(id, "material", request.Materials));
+        db.ProductOptions.AddRange(BuildOptions(id, "printMode", request.PrintModes));
+        db.ProductOptions.AddRange(BuildOptions(id, "finishing", request.Finishings));
+        await db.SaveChangesAsync(cancellationToken);
+
+        product = await db.Products
+            .AsNoTracking()
+            .Include(item => item.Options)
+            .Include(item => item.Quantities)
+            .FirstAsync(item => item.Id == id, cancellationToken);
+
         return Ok(CatalogController.ToResponse(product));
     }
 
@@ -332,6 +346,23 @@ public class AdminController(PrintFlowDbContext db, SecurityService securityServ
 
     private static void ApplyProduct(Product product, UpsertProductRequest request)
     {
+        ApplyProductFields(product, request);
+        product.Quantities.Clear();
+        product.Options.Clear();
+
+        foreach (var quantity in request.Quantities.Where(quantity => quantity > 0).Distinct().OrderBy(quantity => quantity))
+        {
+            product.Quantities.Add(new ProductQuantity { Product = product, Quantity = quantity });
+        }
+
+        AddOptions(product, "size", request.Sizes);
+        AddOptions(product, "material", request.Materials);
+        AddOptions(product, "printMode", request.PrintModes);
+        AddOptions(product, "finishing", request.Finishings);
+    }
+
+    private static void ApplyProductFields(Product product, UpsertProductRequest request)
+    {
         product.Slug = request.Slug.Trim().ToLowerInvariant();
         product.Name = request.Name.Trim();
         product.Category = request.Category.Trim();
@@ -346,18 +377,6 @@ public class AdminController(PrintFlowDbContext db, SecurityService securityServ
         product.RequiresAdvancePayment = request.RequiresAdvancePayment;
         product.Active = request.Active;
         product.UpdatedAt = DateTime.UtcNow;
-
-        product.Quantities.Clear();
-        foreach (var quantity in request.Quantities.Where(quantity => quantity > 0).Distinct().OrderBy(quantity => quantity))
-        {
-            product.Quantities.Add(new ProductQuantity { Product = product, Quantity = quantity });
-        }
-
-        product.Options.Clear();
-        AddOptions(product, "size", request.Sizes);
-        AddOptions(product, "material", request.Materials);
-        AddOptions(product, "printMode", request.PrintModes);
-        AddOptions(product, "finishing", request.Finishings);
     }
 
     private static void AddOptions(Product product, string type, IReadOnlyList<UpsertProductOptionRequest> options)
@@ -373,5 +392,28 @@ public class AdminController(PrintFlowDbContext db, SecurityService securityServ
                 DeadlineDeltaDays = option.Days
             });
         }
+    }
+
+    private static IEnumerable<ProductQuantity> BuildQuantities(Guid productId, IReadOnlyList<int> quantities)
+    {
+        return quantities
+            .Where(quantity => quantity > 0)
+            .Distinct()
+            .OrderBy(quantity => quantity)
+            .Select(quantity => new ProductQuantity { ProductId = productId, Quantity = quantity });
+    }
+
+    private static IEnumerable<ProductOption> BuildOptions(Guid productId, string type, IReadOnlyList<UpsertProductOptionRequest> options)
+    {
+        return options
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .Select(option => new ProductOption
+            {
+                ProductId = productId,
+                Type = type,
+                Name = option.Name.Trim(),
+                PriceDelta = option.Price,
+                DeadlineDeltaDays = option.Days
+            });
     }
 }

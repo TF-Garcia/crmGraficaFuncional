@@ -65,6 +65,10 @@ public class PaymentsController(
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (MercadoPagoException ex)
+        {
+            return BadRequest(new { message = BuildMercadoPagoErrorMessage(ex) });
+        }
     }
 
     [HttpPost("{orderId:guid}/cartao")]
@@ -103,6 +107,10 @@ public class PaymentsController(
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+        catch (MercadoPagoException ex)
+        {
+            return BadRequest(new { message = BuildMercadoPagoErrorMessage(ex) });
         }
     }
 
@@ -228,6 +236,13 @@ public class PaymentsController(
             "refunded" => PaymentStatus.Refunded,
             _ => PaymentStatus.Pending
         };
+    }
+
+    private static string BuildMercadoPagoErrorMessage(MercadoPagoException ex)
+    {
+        return string.IsNullOrWhiteSpace(ex.Message)
+            ? "Falha ao processar pagamento no Mercado Pago."
+            : $"Falha no Mercado Pago: {ex.Message}";
     }
 
     private async Task<long?> ExtractPaymentIdAsync(CancellationToken cancellationToken)

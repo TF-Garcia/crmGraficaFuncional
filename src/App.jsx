@@ -100,10 +100,11 @@ function App() {
   }, [])
 
   const refreshProducts = () => {
-    api.products()
+    return api.products()
       .then((items) => {
         setProducts(items)
         setQuoteProductId((current) => current || items[0]?.id || '')
+        return items
       })
       .catch(() => setNotice('API indisponivel. Verifique se a API esta rodando.'))
   }
@@ -516,7 +517,7 @@ function ClientArea({ goto, auth, active, products, startQuote }) {
 
   return (
     <WorkspaceShell title="Area do cliente" routes={clientRoutes} active={active} base="/cliente" goto={goto} auth={auth}>
-      {active === 'pedidos' && <ClientOrders orders={orders} goto={goto} products={products} reload={reload} settings={settings} paymentConfig={paymentConfig} />}
+      {active === 'pedidos' && <ClientOrders orders={orders} goto={goto} products={products} reload={reload} settings={settings} paymentConfig={paymentConfig} session={auth.session} />}
       {active === 'orcamentos' && <ClientQuotes quotes={quotes} reload={reload} products={products} settings={settings} />}
       {active === 'perfil' && <ProfileForm profile={profile} reload={reload} />}
       {(!active || active === 'dashboard') && (
@@ -528,7 +529,7 @@ function ClientArea({ goto, auth, active, products, startQuote }) {
             <MetricCard label="Pagamentos pendentes" value={pending} tone="amber" />
           </div>
           <div className="panel-grid two">
-            <Panel title="Pedidos recentes"><ClientOrders orders={orders.slice(0, 5)} compact goto={goto} products={products} reload={reload} settings={settings} paymentConfig={paymentConfig} /></Panel>
+            <Panel title="Pedidos recentes"><ClientOrders orders={orders.slice(0, 5)} compact goto={goto} products={products} reload={reload} settings={settings} paymentConfig={paymentConfig} session={auth.session} /></Panel>
             <Panel title="Orcamentos recentes"><ClientQuotes quotes={quotes.slice(0, 4)} compact reload={reload} products={products} settings={settings} /></Panel>
           </div>
         </>
@@ -553,7 +554,7 @@ function configFromRecord(record) {
   }
 }
 
-function ClientOrders({ orders, compact = false, goto, products, reload, settings, paymentConfig }) {
+function ClientOrders({ orders, compact = false, goto, products, reload, settings, paymentConfig, session }) {
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(null)
   const [payingOrder, setPayingOrder] = useState(null)
@@ -591,34 +592,60 @@ function ClientOrders({ orders, compact = false, goto, products, reload, setting
   }
 
   async function startPix(order) {
+    setMessage('')
+    if (!paymentConfig?.enabled) {
+      setMessage('Configure o Access Token do Mercado Pago para habilitar Pix.')
+      return
+    }
+
     setPayingOrder(order)
     setPixPayment(null)
-    const response = await api.createPixPayment(order.id)
-    setPixPayment(response)
-    reload()
+    try {
+      const response = await api.createPixPayment(order.id)
+      setPixPayment(response)
+      reload()
+    } catch (error) {
+      setPayingOrder(null)
+      setMessage(error.message || 'Nao foi possivel gerar o Pix.')
+    }
   }
 
   function startCard(order) {
+    setMessage('')
+    if (!paymentConfig?.enabled || !paymentConfig?.publicKey) {
+      setMessage('Configure a Public Key e o Access Token do Mercado Pago para habilitar cartao.')
+      return
+    }
+
+    initMercadoPago(paymentConfig.publicKey, { locale: 'pt-BR' })
     setPayingOrder(order)
     setPixPayment(null)
-    if (paymentConfig?.publicKey) {
-      initMercadoPago(paymentConfig.publicKey, { locale: 'pt-BR' })
-    }
   }
 
   async function submitCard(paymentData) {
     const payer = paymentData?.payer || {}
-    const response = await api.payWithCard(payingOrder.id, {
-      token: paymentData.token,
-      paymentMethodId: paymentData.payment_method_id,
-      issuerId: paymentData.issuer_id ? Number(paymentData.issuer_id) : null,
-      installments: Number(paymentData.installments || 1),
-      payerEmail: payer.email,
-      identificationType: payer.identification?.type || null,
-      identificationNumber: payer.identification?.number || null,
-    })
-    setMessage(response.paymentStatus === 'Paid' ? 'Pagamento aprovado.' : `Pagamento ${translateStatus(response.paymentStatus)}.`)
-    reload()
+    const payerEmail = payer.email || session?.email || ''
+    if (!paymentData?.token || !paymentData?.payment_method_id || !payerEmail) {
+      setMessage('Preencha os dados do cartao e o email do pagador.')
+      return
+    }
+
+    try {
+      const response = await api.payWithCard(payingOrder.id, {
+        token: paymentData.token,
+        paymentMethodId: paymentData.payment_method_id,
+        issuerId: paymentData.issuer_id ? Number(paymentData.issuer_id) : null,
+        installments: Number(paymentData.installments || 1),
+        payerEmail,
+        identificationType: payer.identification?.type || null,
+        identificationNumber: payer.identification?.number || null,
+      })
+      setMessage(response.paymentStatus === 'Paid' ? 'Pagamento aprovado.' : `Pagamento ${translateStatus(response.paymentStatus)}.`)
+      setPayingOrder(null)
+      reload()
+    } catch (error) {
+      setMessage(error.message || 'Nao foi possivel pagar com cartao.')
+    }
   }
 
   return (
@@ -786,9 +813,9 @@ function AdminArea({ goto, auth, active, products, refreshProducts }) {
   useEffect(reload, [])
   useEffect(() => setAdminProducts(products), [products])
 
-  const reloadProducts = () => {
-    api.adminProducts().then(setAdminProducts).catch(() => {})
-    refreshProducts()
+  const reloadProducts = async () => {
+    await api.adminProducts().then(setAdminProducts).catch(() => {})
+    await refreshProducts()
   }
 
   return (
@@ -938,23 +965,32 @@ function ProductsAdmin({ products, reload }) {
 
   async function submit(event) {
     event.preventDefault()
-    const payload = formToProduct(form)
-    if (editingId) {
-      await api.updateProduct(editingId, payload)
-      setMessage('Produto atualizado.')
-    } else {
-      await api.createProduct(payload)
-      setMessage('Produto criado.')
+    setMessage('')
+    try {
+      const payload = formToProduct(form)
+      if (editingId) {
+        await api.updateProduct(editingId, payload)
+        setMessage('Produto atualizado e salvo no banco.')
+      } else {
+        await api.createProduct(payload)
+        setMessage('Produto criado e salvo no banco.')
+      }
+      setForm(emptyProductForm)
+      setEditingId(null)
+      await reload()
+    } catch (error) {
+      setMessage(error.message || 'Falha ao salvar produto.')
     }
-    setForm(emptyProductForm)
-    setEditingId(null)
-    reload()
   }
 
   async function remove(product) {
-    await api.deleteProduct(product.id)
-    setMessage('Produto removido ou inativado.')
-    reload()
+    try {
+      await api.deleteProduct(product.id)
+      setMessage('Produto removido ou inativado.')
+      await reload()
+    } catch (error) {
+      setMessage(error.message || 'Falha ao excluir produto.')
+    }
   }
 
   return (

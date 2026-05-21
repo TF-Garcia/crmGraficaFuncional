@@ -12,7 +12,14 @@ public class MercadoPagoPaymentService(IConfiguration configuration)
     public bool IsEnabled => !string.IsNullOrWhiteSpace(AccessToken);
     public string PublicKey => configuration["MercadoPago:PublicKey"] ?? string.Empty;
     private string AccessToken => configuration["MercadoPago:AccessToken"] ?? string.Empty;
-    private string? NotificationUrl => configuration["MercadoPago:NotificationUrl"];
+    private string? NotificationUrl
+    {
+        get
+        {
+            var url = configuration["MercadoPago:NotificationUrl"];
+            return string.IsNullOrWhiteSpace(url) ? null : url;
+        }
+    }
 
     public async Task<MercadoPayment> CreatePixPaymentAsync(Order order, CancellationToken cancellationToken)
     {
