@@ -22,7 +22,10 @@ export async function apiRequest(path, options = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Falha na requisicao.' }))
-    throw new Error(error.message ?? 'Falha na requisicao.')
+    const validationErrors = error.errors
+      ? Object.values(error.errors).flat().filter(Boolean).join(' ')
+      : ''
+    throw new Error(error.message || error.title || validationErrors || 'Falha na requisicao.')
   }
 
   if (response.status === 204) {

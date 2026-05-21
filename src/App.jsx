@@ -931,9 +931,15 @@ function productToForm(product) {
 }
 
 function formToProduct(form) {
+  const parseDecimal = (value) => {
+    if (typeof value === 'number') return value
+    const normalized = String(value || '').trim().replace(',', '.')
+    return normalized ? Number(normalized) : 0
+  }
+
   const parseOptions = (text) => String(text || '').split('\n').map((line) => {
     const [name, price = '0', days = '0'] = line.split('|')
-    return { name: name?.trim() || '', price: Number(price), days: Number(days) }
+    return { name: name?.trim() || '', price: parseDecimal(price), days: Number(days) || 0 }
   }).filter((item) => item.name)
 
   return {
@@ -942,8 +948,8 @@ function formToProduct(form) {
     category: form.category,
     description: form.description,
     imageUrl: form.imageUrl,
-    basePrice: Number(form.basePrice),
-    baseDeadline: Number(form.baseDeadline),
+    basePrice: parseDecimal(form.basePrice),
+    baseDeadline: Number(form.baseDeadline) || 0,
     allowUpload: Boolean(form.allowUpload),
     allowPickup: Boolean(form.allowPickup),
     allowDelivery: Boolean(form.allowDelivery),
@@ -958,6 +964,27 @@ function formToProduct(form) {
   }
 }
 
+function validateProductPayload(payload) {
+  const required = [
+    ['Nome', payload.name],
+    ['Slug', payload.slug],
+    ['Categoria', payload.category],
+    ['Descricao', payload.description],
+    ['Imagem URL', payload.imageUrl],
+  ]
+  const missing = required.find(([, value]) => !String(value || '').trim())
+  if (missing) return `Preencha o campo ${missing[0]}.`
+  if (!Number.isFinite(payload.basePrice) || payload.basePrice < 0) return 'Informe um preco base valido.'
+  if (!Number.isFinite(payload.baseDeadline) || payload.baseDeadline < 0) return 'Informe um prazo base valido.'
+  if (!payload.quantities.length) return 'Informe pelo menos uma quantidade.'
+  if (!payload.sizes.length || !payload.materials.length || !payload.printModes.length || !payload.finishings.length) {
+    return 'Informe pelo menos uma opcao de tamanho, material, impressao e acabamento.'
+  }
+  const invalidOption = [...payload.sizes, ...payload.materials, ...payload.printModes, ...payload.finishings]
+    .find((option) => !Number.isFinite(option.price) || !Number.isFinite(option.days))
+  return invalidOption ? 'Revise os opcionais: use o formato Nome|Preco|Dias.' : ''
+}
+
 function ProductsAdmin({ products, reload }) {
   const [form, setForm] = useState(emptyProductForm)
   const [editingId, setEditingId] = useState(null)
@@ -968,6 +995,12 @@ function ProductsAdmin({ products, reload }) {
     setMessage('')
     try {
       const payload = formToProduct(form)
+      const validationMessage = validateProductPayload(payload)
+      if (validationMessage) {
+        setMessage(validationMessage)
+        return
+      }
+
       if (editingId) {
         await api.updateProduct(editingId, payload)
         setMessage('Produto atualizado e salvo no banco.')
