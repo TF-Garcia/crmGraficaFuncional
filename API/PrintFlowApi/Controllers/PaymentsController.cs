@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using MercadoPago.Error;
 using PrintFlowApi.Data;
 using PrintFlowApi.DTOs;
 using PrintFlowApi.Model;
@@ -151,7 +152,16 @@ public class PaymentsController(
             return Ok();
         }
 
-        var mercadoPagoPayment = await mercadoPagoPaymentService.GetPaymentAsync(paymentId.Value, cancellationToken);
+        MercadoPago.Resource.Payment.Payment mercadoPagoPayment;
+        try
+        {
+            mercadoPagoPayment = await mercadoPagoPaymentService.GetPaymentAsync(paymentId.Value, cancellationToken);
+        }
+        catch (MercadoPagoException)
+        {
+            return Ok();
+        }
+
         if (!Guid.TryParse(mercadoPagoPayment.ExternalReference, out var orderId))
         {
             return Ok();
@@ -232,7 +242,23 @@ public class PaymentsController(
             return queryId;
         }
 
-        using var body = await JsonDocument.ParseAsync(Request.Body, cancellationToken: cancellationToken);
+        if (Request.ContentLength is null or 0)
+        {
+            return null;
+        }
+
+        JsonDocument body;
+        try
+        {
+            body = await JsonDocument.ParseAsync(Request.Body, cancellationToken: cancellationToken);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        using (body)
+        {
         if (body.RootElement.TryGetProperty("data", out var data) &&
             data.TryGetProperty("id", out var dataId) &&
             long.TryParse(dataId.ToString(), out var parsedDataId))
@@ -243,6 +269,7 @@ public class PaymentsController(
         if (body.RootElement.TryGetProperty("id", out var id) && long.TryParse(id.ToString(), out var parsedId))
         {
             return parsedId;
+        }
         }
 
         return null;

@@ -63,6 +63,16 @@ public static class DatabaseSeeder
                     [("Meio corte", 18, 0), ("Laminacao", 36, 1), ("Corte especial", 58, 1)]));
         }
 
+        if (!await db.Products.AnyAsync(product => product.Slug == "produto-teste-mercado-pago"))
+        {
+            db.Products.Add(Product("produto-teste-mercado-pago", "Produto teste Mercado Pago", "Teste", "Produto de R$ 0,50 para validar pagamentos Pix e cartao em ambiente de teste do Mercado Pago.", "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80", 0.50m, 1, true,
+                [1],
+                [("Padrao", 0, 0)],
+                [("Teste", 0, 0)],
+                [("Digital", 0, 0)],
+                [("Sem acabamento", 0, 0)]));
+        }
+
         if (!await db.InventoryItems.AnyAsync())
         {
             db.InventoryItems.AddRange(
