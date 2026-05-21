@@ -14,6 +14,106 @@ namespace PrintFlowApi.Controllers;
 [Authorize(Roles = "Admin,Production,Support,Finance")]
 public class AdminController(PrintFlowDbContext db, SecurityService securityService) : ControllerBase
 {
+    [HttpGet("configuracoes-publicas")]
+    [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
+    public async Task<ActionResult<object>> PublicSettings(CancellationToken cancellationToken)
+    {
+        var settings = await GetOrCreateSettingsAsync(cancellationToken);
+        return Ok(new
+        {
+            settings.AllowCustomerQuoteEdit,
+            settings.AllowCustomerOrderEdit,
+            settings.AllowCustomerOrderCancellation,
+            settings.AllowCustomerRefundRequest
+        });
+    }
+
+    [HttpGet("produtos")]
+    [Authorize(Roles = "Admin")]
+    [EnableRateLimiting("public-read")]
+    public async Task<ActionResult<IReadOnlyList<ProductResponse>>> Products(CancellationToken cancellationToken)
+    {
+        var products = await db.Products
+            .AsNoTracking()
+            .Include(product => product.Options)
+            .Include(product => product.Quantities)
+            .OrderBy(product => product.Name)
+            .ToListAsync(cancellationToken);
+
+        return Ok(products.Select(CatalogController.ToResponse).ToList());
+    }
+
+    [HttpPost("produtos")]
+    [Authorize(Roles = "Admin")]
+    [EnableRateLimiting("write")]
+    public async Task<ActionResult<ProductResponse>> CreateProduct(UpsertProductRequest request, CancellationToken cancellationToken)
+    {
+        var slug = request.Slug.Trim().ToLowerInvariant();
+        if (await db.Products.AnyAsync(product => product.Slug == slug, cancellationToken))
+        {
+            return Conflict(new { message = "Slug ja cadastrado." });
+        }
+
+        var product = new Product();
+        ApplyProduct(product, request);
+        db.Products.Add(product);
+        await db.SaveChangesAsync(cancellationToken);
+        return Ok(CatalogController.ToResponse(product));
+    }
+
+    [HttpPut("produtos/{id:guid}")]
+    [Authorize(Roles = "Admin")]
+    [EnableRateLimiting("write")]
+    public async Task<ActionResult<ProductResponse>> UpdateProduct(Guid id, UpsertProductRequest request, CancellationToken cancellationToken)
+    {
+        var product = await db.Products
+            .Include(item => item.Options)
+            .Include(item => item.Quantities)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        if (product is null)
+        {
+            return NotFound(new { message = "Produto nao encontrado." });
+        }
+
+        var slug = request.Slug.Trim().ToLowerInvariant();
+        if (await db.Products.AnyAsync(item => item.Id != id && item.Slug == slug, cancellationToken))
+        {
+            return Conflict(new { message = "Slug ja cadastrado." });
+        }
+
+        ApplyProduct(product, request);
+        await db.SaveChangesAsync(cancellationToken);
+        return Ok(CatalogController.ToResponse(product));
+    }
+
+    [HttpDelete("produtos/{id:guid}")]
+    [Authorize(Roles = "Admin")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> DeleteProduct(Guid id, CancellationToken cancellationToken)
+    {
+        var product = await db.Products.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (product is null)
+        {
+            return NotFound(new { message = "Produto nao encontrado." });
+        }
+
+        var hasOrders = await db.Orders.AnyAsync(order => order.ProductId == id, cancellationToken);
+        if (hasOrders)
+        {
+            product.Active = false;
+            product.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            db.Products.Remove(product);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Ok(new { message = hasOrders ? "Produto inativado porque ja possui pedidos." : "Produto excluido." });
+    }
+
     [HttpGet("pedidos")]
     [EnableRateLimiting("public-read")]
     public async Task<ActionResult<IReadOnlyList<OrderResponse>>> Orders(CancellationToken cancellationToken)
@@ -128,6 +228,11 @@ public class AdminController(PrintFlowDbContext db, SecurityService securityServ
             return NotFound(new { message = "Pedido nao encontrado." });
         }
 
+        if (request.Status == OrderStatus.Finished && order.PaymentStatus != PaymentStatus.Paid)
+        {
+            return BadRequest(new { message = "Pedidos em Pix/cartao nao podem ser finalizados sem pagamento confirmado." });
+        }
+
         order.Status = request.Status;
         order.UpdatedAt = DateTime.UtcNow;
         order.History.Add(new OrderHistory { Status = request.Status.ToString(), Notes = request.InternalNotes });
@@ -161,6 +266,10 @@ public class AdminController(PrintFlowDbContext db, SecurityService securityServ
         settings.RequireAdminPasswordForSensitiveActions = request.RequireAdminPasswordForSensitiveActions;
         settings.AutoStockDeductionEnabled = request.AutoStockDeductionEnabled;
         settings.StockDeductionTriggerStatus = request.StockDeductionTriggerStatus;
+        settings.AllowCustomerQuoteEdit = request.AllowCustomerQuoteEdit;
+        settings.AllowCustomerOrderEdit = request.AllowCustomerOrderEdit;
+        settings.AllowCustomerOrderCancellation = request.AllowCustomerOrderCancellation;
+        settings.AllowCustomerRefundRequest = request.AllowCustomerRefundRequest;
         settings.UpdatedAt = DateTime.UtcNow;
 
         if (!string.IsNullOrWhiteSpace(request.AdminActionPassword))
@@ -214,6 +323,55 @@ public class AdminController(PrintFlowDbContext db, SecurityService securityServ
             settings.RequireAdminPasswordForSensitiveActions,
             !string.IsNullOrWhiteSpace(settings.AdminActionPasswordHash),
             settings.AutoStockDeductionEnabled,
-            settings.StockDeductionTriggerStatus.ToString());
+            settings.StockDeductionTriggerStatus.ToString(),
+            settings.AllowCustomerQuoteEdit,
+            settings.AllowCustomerOrderEdit,
+            settings.AllowCustomerOrderCancellation,
+            settings.AllowCustomerRefundRequest);
+    }
+
+    private static void ApplyProduct(Product product, UpsertProductRequest request)
+    {
+        product.Slug = request.Slug.Trim().ToLowerInvariant();
+        product.Name = request.Name.Trim();
+        product.Category = request.Category.Trim();
+        product.Description = request.Description.Trim();
+        product.ImageUrl = request.ImageUrl.Trim();
+        product.BasePrice = request.BasePrice;
+        product.BaseDeadlineDays = request.BaseDeadline;
+        product.AllowUpload = request.AllowUpload;
+        product.AllowPickup = request.AllowPickup;
+        product.AllowDelivery = request.AllowDelivery;
+        product.AllowPickupPayment = request.AllowPickupPayment;
+        product.RequiresAdvancePayment = request.RequiresAdvancePayment;
+        product.Active = request.Active;
+        product.UpdatedAt = DateTime.UtcNow;
+
+        product.Quantities.Clear();
+        foreach (var quantity in request.Quantities.Where(quantity => quantity > 0).Distinct().OrderBy(quantity => quantity))
+        {
+            product.Quantities.Add(new ProductQuantity { Product = product, Quantity = quantity });
+        }
+
+        product.Options.Clear();
+        AddOptions(product, "size", request.Sizes);
+        AddOptions(product, "material", request.Materials);
+        AddOptions(product, "printMode", request.PrintModes);
+        AddOptions(product, "finishing", request.Finishings);
+    }
+
+    private static void AddOptions(Product product, string type, IReadOnlyList<UpsertProductOptionRequest> options)
+    {
+        foreach (var option in options.Where(item => !string.IsNullOrWhiteSpace(item.Name)))
+        {
+            product.Options.Add(new ProductOption
+            {
+                Product = product,
+                Type = type,
+                Name = option.Name.Trim(),
+                PriceDelta = option.Price,
+                DeadlineDeltaDays = option.Days
+            });
+        }
     }
 }

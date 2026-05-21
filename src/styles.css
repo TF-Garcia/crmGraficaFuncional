@@ -607,6 +607,12 @@ dd {
   gap: 12px;
 }
 
+.password-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 8px;
+}
+
 .workspace-shell {
   display: grid;
   grid-template-columns: 270px minmax(0, 1fr);
@@ -873,6 +879,58 @@ th {
   grid-template-columns: repeat(3, minmax(220px, 1fr));
 }
 
+.product-admin-form,
+.inline-editor {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.inline-editor {
+  padding: 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.payment-box {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.payment-box h3 {
+  margin: 0;
+}
+
+.pix-qr {
+  width: 220px;
+  max-width: 100%;
+  padding: 10px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.inline-editor h3,
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.inline-editor h3 {
+  margin: 0;
+}
+
+.danger-action {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
 .quote-status-grid {
   grid-template-columns: repeat(3, minmax(220px, 1fr));
 }
@@ -931,7 +989,9 @@ th {
   }
 
   .panel-grid.three,
-  .settings-grid {
+  .settings-grid,
+  .product-admin-form,
+  .inline-editor {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1016,9 +1076,11 @@ th {
   .portfolio-grid,
   .stats-grid,
   .stats-grid.compact,
-  .panel-grid.three,
-  .settings-grid,
-  .quote-status-grid {
+    .panel-grid.three,
+    .settings-grid,
+    .product-admin-form,
+    .inline-editor,
+    .quote-status-grid {
     grid-template-columns: 1fr;
   }
 

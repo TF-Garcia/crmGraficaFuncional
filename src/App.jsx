@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CardPayment, initMercadoPago } from '@mercadopago/sdk-react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -7,6 +8,8 @@ import {
   CheckCircle2,
   ClipboardList,
   CreditCard,
+  Eye,
+  EyeOff,
   FileText,
   Home,
   Layers,
@@ -63,8 +66,6 @@ const routeLabels = {
   '/': 'Inicio',
   '/catalogo': 'Catalogo',
   '/orcamento': 'Orcamento',
-  '/login': 'Login',
-  '/cadastro': 'Cadastro',
   '/contato': 'Contato',
 }
 
@@ -95,13 +96,17 @@ function App() {
 
   useEffect(() => {
     window.onpopstate = () => setRoute(getInitialRoute())
+    refreshProducts()
+  }, [])
+
+  const refreshProducts = () => {
     api.products()
       .then((items) => {
         setProducts(items)
         setQuoteProductId((current) => current || items[0]?.id || '')
       })
       .catch(() => setNotice('API indisponivel. Verifique se a API esta rodando.'))
-  }, [])
+  }
 
   const goto = (path) => navigate(path, setRoute)
   const selectedProduct = products.find((product) => product.id === quoteProductId) ?? products[0]
@@ -137,7 +142,7 @@ function App() {
   let page
   if (route.startsWith('/admin')) {
     page = session?.role === 'admin'
-      ? <AdminArea goto={goto} auth={auth} active={route.split('/')[2] || 'dashboard'} />
+      ? <AdminArea goto={goto} auth={auth} active={route.split('/')[2] || 'dashboard'} products={products} refreshProducts={refreshProducts} />
       : <AuthPage auth={auth} mode="login" />
   } else if (route.startsWith('/cliente')) {
     page = session
@@ -391,8 +396,8 @@ function QuotePage({ product, products, setProductId, goto, session }) {
             <div><dt>Urgencia</dt><dd>{formatMoney(quote?.urgencyFee || 0)}</dd></div>
             <div><dt>Entrega</dt><dd>{formatMoney(quote?.deliveryFee || 0)}</dd></div>
           </dl>
-          <Select label="Pagamento preparado" value={config.paymentMethod} onChange={(paymentMethod) => setConfig({ ...config, paymentMethod })} options={[['Pix', 'Pix futuro'], ['Card', 'Cartao futuro'], ['Pickup', 'Pagamento no balcao']]} />
-          <p className="service-note">Pagamento real sera integrado depois. Agora o pedido fica pendente ou no balcao.</p>
+          <Select label="Pagamento" value={config.paymentMethod} onChange={(paymentMethod) => setConfig({ ...config, paymentMethod })} options={[['Pix', 'Pix pendente'], ['Card', 'Cartao pendente'], ...(product.allowPickupPayment ? [['Pickup', 'Pagamento no balcao']] : [])]} />
+          <p className="service-note">Pix e cartao ficam pendentes ate a integracao real. Pagamento no balcao entra como pago.</p>
           {message && <p className="service-note">{message}</p>}
           <button className="ghost-button xl" type="button" onClick={saveQuote}>Salvar orcamento</button>
           <button className="primary-button xl" type="button" onClick={createOrder}>Confirmar pedido <PackageCheck size={18} /></button>
@@ -403,12 +408,17 @@ function QuotePage({ product, products, setProductId, goto, session }) {
 }
 
 function AuthPage({ auth, mode }) {
-  const [form, setForm] = useState({ name: '', email: 'contato@studiobella.com.br', phone: '(11) 98888-4211', document: '', address: '', password: 'Cliente@123456' })
+  const [form, setForm] = useState({ name: '', email: 'contato@studiobella.com.br', phone: '(11) 98888-4211', document: '', address: '', password: 'Cliente@123456', confirmPassword: 'Cliente@123456' })
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   async function submit(event) {
     event.preventDefault()
     setError('')
+    if (mode === 'signup' && form.password !== form.confirmPassword) {
+      setError('As senhas nao conferem.')
+      return
+    }
     try {
       const payload = mode === 'signup' ? await api.register(form) : await api.login({ email: form.email, password: form.password })
       auth.setLoggedUser(payload)
@@ -426,16 +436,31 @@ function AuthPage({ auth, mode }) {
         <div className="auth-form">
           {mode === 'signup' && <label>Nome<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>}
           <label>Email<input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></label>
-          <label>Senha<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required /></label>
+          <PasswordField label="Senha" value={form.password} show={showPassword} setShow={setShowPassword} onChange={(password) => setForm({ ...form, password })} required />
+          {mode === 'signup' && <PasswordField label="Confirmar senha" value={form.confirmPassword} show={showPassword} setShow={setShowPassword} onChange={(confirmPassword) => setForm({ ...form, confirmPassword })} required />}
           {mode === 'signup' && <label>Telefone<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} required /></label>}
           {mode === 'signup' && <label>CPF/CNPJ<input value={form.document} onChange={(event) => setForm({ ...form, document: event.target.value })} /></label>}
           {mode === 'signup' && <label>Endereco<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>}
         </div>
         {error && <p className="service-note warning">{error}</p>}
         <button className="primary-button xl" type="submit">{mode === 'signup' ? 'Cadastrar' : 'Entrar'}</button>
+        {mode === 'login' && <button className="link-button" type="button" onClick={() => navigate('/cadastro', () => window.location.assign('/cadastro'))}>Nao tem uma conta? Cadastre-se</button>}
         <button className="link-button" type="button" onClick={() => navigate('/esqueci-senha', () => window.location.assign('/esqueci-senha'))}>Esqueci minha senha</button>
       </form>
     </main>
+  )
+}
+
+function PasswordField({ label, value, onChange, show, setShow, required = false }) {
+  return (
+    <label>{label}
+      <span className="password-field">
+        <input type={show ? 'text' : 'password'} value={value} onChange={(event) => onChange(event.target.value)} required={required} />
+        <button className="icon-button" type="button" onClick={() => setShow(!show)} title={show ? 'Ocultar senha' : 'Mostrar senha'}>
+          {show ? <EyeOff size={17} /> : <Eye size={17} />}
+        </button>
+      </span>
+    </label>
   )
 }
 
@@ -473,11 +498,15 @@ function ClientArea({ goto, auth, active, products, startQuote }) {
   const [orders, setOrders] = useState([])
   const [quotes, setQuotes] = useState([])
   const [profile, setProfile] = useState(null)
+  const [settings, setSettings] = useState({})
+  const [paymentConfig, setPaymentConfig] = useState(null)
 
   const reload = () => {
     api.myOrders().then(setOrders).catch(() => setOrders([]))
     api.myQuotes().then(setQuotes).catch(() => setQuotes([]))
     api.profile().then(setProfile).catch(() => setProfile(null))
+    api.publicSettings().then(setSettings).catch(() => setSettings({}))
+    api.mercadoPagoConfig().then(setPaymentConfig).catch(() => setPaymentConfig(null))
   }
 
   useEffect(reload, [])
@@ -487,8 +516,8 @@ function ClientArea({ goto, auth, active, products, startQuote }) {
 
   return (
     <WorkspaceShell title="Area do cliente" routes={clientRoutes} active={active} base="/cliente" goto={goto} auth={auth}>
-      {active === 'pedidos' && <ClientOrders orders={orders} goto={goto} products={products} startQuote={startQuote} />}
-      {active === 'orcamentos' && <ClientQuotes quotes={quotes} reload={reload} />}
+      {active === 'pedidos' && <ClientOrders orders={orders} goto={goto} products={products} reload={reload} settings={settings} paymentConfig={paymentConfig} />}
+      {active === 'orcamentos' && <ClientQuotes quotes={quotes} reload={reload} products={products} settings={settings} />}
       {active === 'perfil' && <ProfileForm profile={profile} reload={reload} />}
       {(!active || active === 'dashboard') && (
         <>
@@ -499,8 +528,8 @@ function ClientArea({ goto, auth, active, products, startQuote }) {
             <MetricCard label="Pagamentos pendentes" value={pending} tone="amber" />
           </div>
           <div className="panel-grid two">
-            <Panel title="Pedidos recentes"><ClientOrders orders={orders.slice(0, 5)} compact goto={goto} products={products} startQuote={startQuote} /></Panel>
-            <Panel title="Orcamentos recentes"><ClientQuotes quotes={quotes.slice(0, 4)} compact reload={reload} /></Panel>
+            <Panel title="Pedidos recentes"><ClientOrders orders={orders.slice(0, 5)} compact goto={goto} products={products} reload={reload} settings={settings} paymentConfig={paymentConfig} /></Panel>
+            <Panel title="Orcamentos recentes"><ClientQuotes quotes={quotes.slice(0, 4)} compact reload={reload} products={products} settings={settings} /></Panel>
           </div>
         </>
       )}
@@ -508,40 +537,206 @@ function ClientArea({ goto, auth, active, products, startQuote }) {
   )
 }
 
-function ClientOrders({ orders, compact = false, goto }) {
+function configFromRecord(record) {
+  return {
+    productId: record.productId,
+    quantity: record.quantity,
+    size: record.size,
+    material: record.material,
+    printMode: record.printMode,
+    finishing: record.finishing,
+    urgency: record.urgency || 'normal',
+    delivery: record.delivery || 'Pickup',
+    paymentMethod: record.paymentMethod || 'Pix',
+    notes: record.notes || '',
+    artworkFileName: '',
+  }
+}
+
+function ClientOrders({ orders, compact = false, goto, products, reload, settings, paymentConfig }) {
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState(null)
+  const [payingOrder, setPayingOrder] = useState(null)
+  const [pixPayment, setPixPayment] = useState(null)
+  const [message, setMessage] = useState('')
   const totals = useMemo(() => ({
     total: orders.reduce((sum, order) => sum + order.total, 0),
     paid: orders.filter((order) => order.paymentStatus === 'Paid').reduce((sum, order) => sum + order.total, 0),
-    counter: orders.filter((order) => order.paymentStatus === 'CounterPayment').reduce((sum, order) => sum + order.total, 0),
+    pending: orders.filter((order) => order.paymentStatus === 'Pending').reduce((sum, order) => sum + order.total, 0),
   }), [orders])
+
+  const startEdit = (order) => {
+    setEditing(order)
+    setForm(configFromRecord(order))
+  }
+
+  async function saveEdit(event) {
+    event.preventDefault()
+    await api.updateOrder(editing.id, form)
+    setMessage('Pedido atualizado.')
+    setEditing(null)
+    reload()
+  }
+
+  async function cancelOrder(order) {
+    await api.cancelOrder(order.id)
+    setMessage('Pedido cancelado.')
+    reload()
+  }
+
+  async function refundOrder(order) {
+    await api.refundOrder(order.id)
+    setMessage('Estorno solicitado.')
+    reload()
+  }
+
+  async function startPix(order) {
+    setPayingOrder(order)
+    setPixPayment(null)
+    const response = await api.createPixPayment(order.id)
+    setPixPayment(response)
+    reload()
+  }
+
+  function startCard(order) {
+    setPayingOrder(order)
+    setPixPayment(null)
+    if (paymentConfig?.publicKey) {
+      initMercadoPago(paymentConfig.publicKey, { locale: 'pt-BR' })
+    }
+  }
+
+  async function submitCard(paymentData) {
+    const payer = paymentData?.payer || {}
+    const response = await api.payWithCard(payingOrder.id, {
+      token: paymentData.token,
+      paymentMethodId: paymentData.payment_method_id,
+      issuerId: paymentData.issuer_id ? Number(paymentData.issuer_id) : null,
+      installments: Number(paymentData.installments || 1),
+      payerEmail: payer.email,
+      identificationType: payer.identification?.type || null,
+      identificationNumber: payer.identification?.number || null,
+    })
+    setMessage(response.paymentStatus === 'Paid' ? 'Pagamento aprovado.' : `Pagamento ${translateStatus(response.paymentStatus)}.`)
+    reload()
+  }
 
   return (
     <Panel title="Meus pedidos" action={<button className="primary-button" type="button" onClick={() => goto('/orcamento')}><PackagePlus size={16} /> Novo pedido</button>}>
       {!compact && (
         <div className="stats-grid compact">
           <MetricCard label="Total dos pedidos" value={formatMoney(totals.total)} tone="blue" />
-          <MetricCard label="Pago antecipado" value={formatMoney(totals.paid)} tone="green" />
-          <MetricCard label="No balcao" value={formatMoney(totals.counter)} tone="amber" />
+          <MetricCard label="Pagos" value={formatMoney(totals.paid)} tone="green" />
+          <MetricCard label="Pendentes" value={formatMoney(totals.pending)} tone="amber" />
         </div>
       )}
-      <DataTable columns={compact ? ['Pedido', 'Produto', 'Status'] : ['Pedido', 'Data', 'Produto', 'Qtd', 'Prazo', 'Pagamento', 'Status', 'Valor']} rows={orders.map((order) => compact
+      {message && <p className="service-note">{message}</p>}
+      {editing && form && (
+        <InlineConfigurator title={`Editar pedido #${editing.number}`} form={form} setForm={setForm} products={products} onSubmit={saveEdit} onCancel={() => setEditing(null)} submitLabel="Salvar pedido" includePayment />
+      )}
+      {!compact && payingOrder && payingOrder.paymentMethod === 'Pix' && pixPayment && (
+        <PaymentBox title={`Pix do pedido #${payingOrder.number}`} onClose={() => setPayingOrder(null)}>
+          {pixPayment.qrCodeBase64 && <img className="pix-qr" src={`data:image/png;base64,${pixPayment.qrCodeBase64}`} alt="QR Code Pix" />}
+          {pixPayment.qrCode && <label>Copia e cola Pix<textarea readOnly value={pixPayment.qrCode} /></label>}
+          {pixPayment.ticketUrl && <a className="ghost-button" href={pixPayment.ticketUrl} target="_blank" rel="noreferrer">Abrir pagamento</a>}
+        </PaymentBox>
+      )}
+      {!compact && payingOrder && payingOrder.paymentMethod === 'Card' && (
+        <PaymentBox title={`Cartao do pedido #${payingOrder.number}`} onClose={() => setPayingOrder(null)}>
+          {paymentConfig?.publicKey ? (
+            <CardPayment
+              initialization={{ amount: payingOrder.total }}
+              locale="pt-BR"
+              onSubmit={submitCard}
+              onError={(error) => setMessage(error?.message || 'Falha no formulario do Mercado Pago.')}
+            />
+          ) : (
+            <p className="service-note warning">Configure a Public Key do Mercado Pago para habilitar cartao.</p>
+          )}
+        </PaymentBox>
+      )}
+      <DataTable columns={compact ? ['Pedido', 'Produto', 'Status'] : ['Pedido', 'Data', 'Produto', 'Qtd', 'Prazo', 'Pagamento', 'Status', 'Valor', 'Acao']} rows={orders.map((order) => compact
         ? [`#${order.number}`, order.productName, order.status]
-        : [`#${order.number}`, formatDate(order.createdAt), order.productName, order.quantity, order.deadline ? formatDate(order.deadline) : '-', order.paymentStatus, order.status, formatMoney(order.total)])} />
+        : [`#${order.number}`, formatDate(order.createdAt), order.productName, order.quantity, order.deadline ? formatDate(order.deadline) : '-', order.paymentStatus, order.status, formatMoney(order.total),
+          <span className="row-actions">
+            {order.paymentStatus === 'Pending' && order.paymentMethod === 'Pix' && <button className="primary-button" type="button" onClick={() => startPix(order)}>Pagar Pix</button>}
+            {order.paymentStatus === 'Pending' && order.paymentMethod === 'Card' && <button className="primary-button" type="button" onClick={() => startCard(order)}>Pagar cartao</button>}
+            {settings.allowCustomerOrderEdit && !['InProduction', 'Finished', 'Cancelled'].includes(order.status) && <button className="ghost-button" type="button" onClick={() => startEdit(order)}>Editar</button>}
+            {settings.allowCustomerOrderCancellation && !['InProduction', 'Finished', 'Cancelled'].includes(order.status) && <button className="ghost-button danger-action" type="button" onClick={() => cancelOrder(order)}>Cancelar</button>}
+            {settings.allowCustomerRefundRequest && order.paymentStatus === 'Paid' && <button className="ghost-button danger-action" type="button" onClick={() => refundOrder(order)}>Estorno</button>}
+          </span>])} />
     </Panel>
   )
 }
 
-function ClientQuotes({ quotes, compact = false, reload }) {
+function PaymentBox({ title, onClose, children }) {
+  return (
+    <section className="payment-box">
+      <div className="panel-heading"><h3>{title}</h3><button className="ghost-button" type="button" onClick={onClose}>Fechar</button></div>
+      {children}
+    </section>
+  )
+}
+
+function ClientQuotes({ quotes, compact = false, reload, products, settings }) {
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState(null)
   async function convert(quoteId) {
     await api.convertQuote(quoteId, { paymentMethod: 'Pix', artworkFileName: null })
     reload()
   }
+  const startEdit = (quote) => {
+    setEditing(quote)
+    setForm(configFromRecord(quote))
+  }
+  async function saveEdit(event) {
+    event.preventDefault()
+    await api.updateQuote(editing.id, form)
+    setEditing(null)
+    reload()
+  }
   return (
     <Panel title="Meus orcamentos">
+      {editing && form && <InlineConfigurator title={`Editar ${editing.number}`} form={form} setForm={setForm} products={products} onSubmit={saveEdit} onCancel={() => setEditing(null)} submitLabel="Salvar orcamento" />}
       <DataTable columns={compact ? ['Orcamento', 'Produto', 'Valor'] : ['Orcamento', 'Data', 'Produto', 'Qtd', 'Prazo', 'Status', 'Valor', 'Acao']} rows={quotes.map((quote) => compact
         ? [quote.number, quote.productName, formatMoney(quote.total)]
-        : [quote.number, formatDate(quote.createdAt), quote.productName, quote.quantity, pluralizeDays(quote.estimatedDays), quote.status, formatMoney(quote.total), quote.status === 'ConvertedToOrder' ? 'Convertido' : <button className="ghost-button" type="button" onClick={() => convert(quote.id)}>Converter</button>])} />
+        : [quote.number, formatDate(quote.createdAt), quote.productName, quote.quantity, pluralizeDays(quote.estimatedDays), quote.status, formatMoney(quote.total), quote.status === 'ConvertedToOrder' ? 'Convertido' : <span className="row-actions">{settings.allowCustomerQuoteEdit && <button className="ghost-button" type="button" onClick={() => startEdit(quote)}>Editar</button>}<button className="ghost-button" type="button" onClick={() => convert(quote.id)}>Converter</button></span>])} />
     </Panel>
+  )
+}
+
+function InlineConfigurator({ title, form, setForm, products, onSubmit, onCancel, submitLabel, includePayment = false }) {
+  const product = products.find((item) => item.id === form.productId) || products[0]
+  if (!product) return null
+  const paymentOptions = [['Pix', 'Pix pendente'], ['Card', 'Cartao pendente'], ...(product.allowPickupPayment ? [['Pickup', 'Pagamento no balcao']] : [])]
+  const changeProduct = (productId) => {
+    const next = products.find((item) => item.id === productId)
+    setForm({
+      ...form,
+      productId,
+      quantity: next?.quantities?.[0] || 1,
+      size: next?.sizes?.[0]?.name || '',
+      material: next?.materials?.[0]?.name || '',
+      printMode: next?.printModes?.[0]?.name || '',
+      finishing: next?.finishings?.[0]?.name || '',
+      paymentMethod: next?.allowPickupPayment ? form.paymentMethod : form.paymentMethod === 'Pickup' ? 'Pix' : form.paymentMethod,
+    })
+  }
+  return (
+    <form className="inline-editor" onSubmit={onSubmit}>
+      <h3>{title}</h3>
+      <Select label="Produto" value={form.productId} onChange={changeProduct} options={products.map((item) => [item.id, item.name])} />
+      <Select label="Quantidade" value={form.quantity} onChange={(quantity) => setForm({ ...form, quantity: Number(quantity) })} options={(product.quantities || []).map((item) => [item, item.toLocaleString('pt-BR')])} />
+      <Select label="Tamanho" value={form.size} onChange={(size) => setForm({ ...form, size })} options={toProductOption(product.sizes)} />
+      <Select label="Material" value={form.material} onChange={(material) => setForm({ ...form, material })} options={toProductOption(product.materials)} />
+      <Select label="Impressao" value={form.printMode} onChange={(printMode) => setForm({ ...form, printMode })} options={toProductOption(product.printModes)} />
+      <Select label="Acabamento" value={form.finishing} onChange={(finishing) => setForm({ ...form, finishing })} options={toProductOption(product.finishings)} />
+      <Select label="Urgencia" value={form.urgency} onChange={(urgency) => setForm({ ...form, urgency })} options={[['normal', 'Normal'], ['expressa', 'Expressa +25%'], ['urgente', 'Urgente +45%']]} />
+      <Select label="Retirada ou entrega" value={form.delivery} onChange={(delivery) => setForm({ ...form, delivery })} options={[['Pickup', 'Retirada'], ['LocalDelivery', 'Entrega local']]} />
+      {includePayment && <Select label="Pagamento" value={form.paymentMethod} onChange={(paymentMethod) => setForm({ ...form, paymentMethod })} options={paymentOptions} />}
+      <label className="wide-field">Observacoes<textarea value={form.notes || ''} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></label>
+      <div className="row-actions"><button className="primary-button" type="submit">{submitLabel}</button><button className="ghost-button" type="button" onClick={onCancel}>Fechar</button></div>
+    </form>
   )
 }
 
@@ -572,11 +767,12 @@ function ProfileForm({ profile, reload }) {
   )
 }
 
-function AdminArea({ goto, auth, active }) {
+function AdminArea({ goto, auth, active, products, refreshProducts }) {
   const [dashboard, setDashboard] = useState(null)
   const [orders, setOrders] = useState([])
   const [customers, setCustomers] = useState([])
   const [inventory, setInventory] = useState([])
+  const [adminProducts, setAdminProducts] = useState(products)
   const [settings, setSettings] = useState(null)
 
   const reload = () => {
@@ -584,15 +780,22 @@ function AdminArea({ goto, auth, active }) {
     api.adminOrders().then(setOrders).catch(() => setOrders([]))
     api.adminCustomers().then(setCustomers).catch(() => setCustomers([]))
     api.adminInventory().then(setInventory).catch(() => setInventory([]))
+    api.adminProducts().then(setAdminProducts).catch(() => setAdminProducts(products))
     api.adminSettings().then(setSettings).catch(() => {})
   }
   useEffect(reload, [])
+  useEffect(() => setAdminProducts(products), [products])
+
+  const reloadProducts = () => {
+    api.adminProducts().then(setAdminProducts).catch(() => {})
+    refreshProducts()
+  }
 
   return (
     <WorkspaceShell title="Admin CRM" routes={adminRoutes} active={active} base="/admin" goto={goto} auth={auth}>
       {active === 'pedidos' && <OrdersAdmin orders={orders} reload={reload} />}
       {active === 'clientes' && <ClientsAdmin customers={customers} />}
-      {active === 'produtos' && <ProductsAdmin />}
+      {active === 'produtos' && <ProductsAdmin products={adminProducts} reload={reloadProducts} />}
       {active === 'estoque' && <InventoryAdmin inventory={inventory} reload={reload} />}
       {active === 'producao' && <ProductionAdmin orders={orders} />}
       {active === 'pagamentos' && <PaymentsAdmin orders={orders} reload={reload} />}
@@ -665,8 +868,128 @@ function ClientsAdmin({ customers }) {
   return <Panel title="Clientes"><DataTable columns={['Nome', 'Email', 'Telefone', 'Total gasto', 'Status']} rows={customers.map((client) => [client.name, client.email, client.phone, formatMoney(client.totalSpent || 0), client.active ? 'Ativo' : 'Inativo'])} /></Panel>
 }
 
-function ProductsAdmin() {
-  return <Panel title="Catalogo e produtos"><p className="muted">Catalogo real ja vem do banco. CRUD visual completo entra na proxima rodada.</p></Panel>
+const emptyProductForm = {
+  slug: '',
+  name: '',
+  category: '',
+  description: '',
+  imageUrl: '',
+  basePrice: 0,
+  baseDeadline: 3,
+  allowUpload: true,
+  allowPickup: true,
+  allowDelivery: true,
+  allowPickupPayment: false,
+  requiresAdvancePayment: true,
+  active: true,
+  quantitiesText: '100, 250, 500',
+  sizesText: 'Padrao|0|0',
+  materialsText: 'Couchê 250g|0|0',
+  printModesText: '4x0|0|0',
+  finishingsText: 'Sem acabamento|0|0',
+}
+
+function productToForm(product) {
+  const pack = (items) => items.map((item) => `${item.name}|${item.price}|${item.days}`).join('\n')
+  return {
+    ...emptyProductForm,
+    ...product,
+    baseDeadline: product.baseDeadline,
+    quantitiesText: product.quantities?.join(', ') || '',
+    sizesText: pack(product.sizes || []),
+    materialsText: pack(product.materials || []),
+    printModesText: pack(product.printModes || []),
+    finishingsText: pack(product.finishings || []),
+  }
+}
+
+function formToProduct(form) {
+  const parseOptions = (text) => String(text || '').split('\n').map((line) => {
+    const [name, price = '0', days = '0'] = line.split('|')
+    return { name: name?.trim() || '', price: Number(price), days: Number(days) }
+  }).filter((item) => item.name)
+
+  return {
+    slug: form.slug,
+    name: form.name,
+    category: form.category,
+    description: form.description,
+    imageUrl: form.imageUrl,
+    basePrice: Number(form.basePrice),
+    baseDeadline: Number(form.baseDeadline),
+    allowUpload: Boolean(form.allowUpload),
+    allowPickup: Boolean(form.allowPickup),
+    allowDelivery: Boolean(form.allowDelivery),
+    allowPickupPayment: Boolean(form.allowPickupPayment),
+    requiresAdvancePayment: Boolean(form.requiresAdvancePayment),
+    active: Boolean(form.active),
+    quantities: String(form.quantitiesText || '').split(',').map((item) => Number(item.trim())).filter(Boolean),
+    sizes: parseOptions(form.sizesText),
+    materials: parseOptions(form.materialsText),
+    printModes: parseOptions(form.printModesText),
+    finishings: parseOptions(form.finishingsText),
+  }
+}
+
+function ProductsAdmin({ products, reload }) {
+  const [form, setForm] = useState(emptyProductForm)
+  const [editingId, setEditingId] = useState(null)
+  const [message, setMessage] = useState('')
+
+  async function submit(event) {
+    event.preventDefault()
+    const payload = formToProduct(form)
+    if (editingId) {
+      await api.updateProduct(editingId, payload)
+      setMessage('Produto atualizado.')
+    } else {
+      await api.createProduct(payload)
+      setMessage('Produto criado.')
+    }
+    setForm(emptyProductForm)
+    setEditingId(null)
+    reload()
+  }
+
+  async function remove(product) {
+    await api.deleteProduct(product.id)
+    setMessage('Produto removido ou inativado.')
+    reload()
+  }
+
+  return (
+    <Panel title="Catalogo e produtos">
+      <form className="product-admin-form" onSubmit={submit}>
+        <label>Nome<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
+        <label>Slug<input value={form.slug} onChange={(event) => setForm({ ...form, slug: event.target.value })} required /></label>
+        <label>Categoria<input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} required /></label>
+        <label>Imagem URL<input value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} required /></label>
+        <label>Preco base<input type="number" step="0.01" value={form.basePrice} onChange={(event) => setForm({ ...form, basePrice: event.target.value })} /></label>
+        <label>Prazo base<input type="number" value={form.baseDeadline} onChange={(event) => setForm({ ...form, baseDeadline: event.target.value })} /></label>
+        <label className="wide-field">Descricao<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></label>
+        <label>Quantidades<input value={form.quantitiesText} onChange={(event) => setForm({ ...form, quantitiesText: event.target.value })} /></label>
+        <label>Tamanhos<textarea value={form.sizesText} onChange={(event) => setForm({ ...form, sizesText: event.target.value })} /></label>
+        <label>Materiais<textarea value={form.materialsText} onChange={(event) => setForm({ ...form, materialsText: event.target.value })} /></label>
+        <label>Impressoes<textarea value={form.printModesText} onChange={(event) => setForm({ ...form, printModesText: event.target.value })} /></label>
+        <label>Acabamentos<textarea value={form.finishingsText} onChange={(event) => setForm({ ...form, finishingsText: event.target.value })} /></label>
+        <label><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /> Ativo</label>
+        <label><input type="checkbox" checked={form.allowPickupPayment} onChange={(event) => setForm({ ...form, allowPickupPayment: event.target.checked, requiresAdvancePayment: !event.target.checked })} /> Permitir pagamento no balcao</label>
+        <div className="row-actions">
+          <button className="primary-button" type="submit">{editingId ? 'Salvar produto' : 'Adicionar produto'}</button>
+          {editingId && <button className="ghost-button" type="button" onClick={() => { setEditingId(null); setForm(emptyProductForm) }}>Cancelar edicao</button>}
+        </div>
+      </form>
+      {message && <p className="service-note">{message}</p>}
+      <DataTable columns={['Produto', 'Categoria', 'Preco', 'Prazo', 'Status', 'Acao']} rows={products.map((product) => [
+        product.name,
+        product.category,
+        formatMoney(product.basePrice),
+        pluralizeDays(product.baseDeadline),
+        product.active ? 'Ativo' : 'Inativo',
+        <span className="row-actions"><button className="ghost-button" type="button" onClick={() => { setEditingId(product.id); setForm(productToForm(product)) }}>Editar</button><button className="ghost-button danger-action" type="button" onClick={() => remove(product)}>Excluir</button></span>,
+      ])} />
+    </Panel>
+  )
 }
 
 function InventoryAdmin({ inventory, reload }) {
@@ -713,8 +1036,8 @@ function PaymentsAdmin({ orders, reload }) {
   }
   return (
     <Panel title="Pagamentos preparados">
-      <p className="service-note">Sem gateway nesta etapa. Confirmacao manual habilitada para admin/financeiro.</p>
-      <DataTable columns={['Pedido', 'Metodo', 'Status', 'Valor', 'Acao']} rows={orders.map((order) => [`#${order.number}`, order.paymentMethod, order.paymentStatus, formatMoney(order.total), order.paymentStatus === 'Paid' ? 'Confirmado' : <button className="ghost-button" type="button" onClick={() => confirm(order)}>Confirmar manualmente</button>])} />
+      <p className="service-note">Pix e cartao ficam pendentes ate a integracao real. Confirmacao manual aparece apenas para pagamento no balcao.</p>
+      <DataTable columns={['Pedido', 'Metodo', 'Status', 'Valor', 'Acao']} rows={orders.map((order) => [`#${order.number}`, order.paymentMethod, order.paymentStatus, formatMoney(order.total), order.paymentMethod === 'Pickup' && order.paymentStatus !== 'Paid' ? <button className="ghost-button" type="button" onClick={() => confirm(order)}>Confirmar manualmente</button> : order.paymentStatus === 'Paid' ? 'Confirmado' : 'Aguardando gateway'])} />
     </Panel>
   )
 }
@@ -747,6 +1070,10 @@ function SettingsAdmin({ settings, reload }) {
       adminActionPassword: form.adminActionPassword || null,
       autoStockDeductionEnabled: Boolean(form.autoStockDeductionEnabled),
       stockDeductionTriggerStatus: form.stockDeductionTriggerStatus || 'InProduction',
+      allowCustomerQuoteEdit: Boolean(form.allowCustomerQuoteEdit),
+      allowCustomerOrderEdit: Boolean(form.allowCustomerOrderEdit),
+      allowCustomerOrderCancellation: Boolean(form.allowCustomerOrderCancellation),
+      allowCustomerRefundRequest: Boolean(form.allowCustomerRefundRequest),
       currentAdminPassword: form.currentAdminPassword || null,
     })
     reload()
@@ -761,6 +1088,10 @@ function SettingsAdmin({ settings, reload }) {
         <label>Nova senha extra<input type="password" value={form.adminActionPassword || ''} onChange={(event) => setForm({ ...form, adminActionPassword: event.target.value })} /></label>
         <label><input type="checkbox" checked={Boolean(form.autoStockDeductionEnabled)} onChange={(event) => setForm({ ...form, autoStockDeductionEnabled: event.target.checked })} /> Baixa automatica de estoque</label>
         <Select label="Status para baixa" value={form.stockDeductionTriggerStatus || 'InProduction'} onChange={(stockDeductionTriggerStatus) => setForm({ ...form, stockDeductionTriggerStatus })} options={[['InProduction', 'Em producao'], ['Finished', 'Finalizado'], ['PaymentConfirmed', 'Pagamento confirmado']]} />
+        <label><input type="checkbox" checked={Boolean(form.allowCustomerQuoteEdit)} onChange={(event) => setForm({ ...form, allowCustomerQuoteEdit: event.target.checked })} /> Cliente edita orcamentos</label>
+        <label><input type="checkbox" checked={Boolean(form.allowCustomerOrderEdit)} onChange={(event) => setForm({ ...form, allowCustomerOrderEdit: event.target.checked })} /> Cliente edita pedidos</label>
+        <label><input type="checkbox" checked={Boolean(form.allowCustomerOrderCancellation)} onChange={(event) => setForm({ ...form, allowCustomerOrderCancellation: event.target.checked })} /> Cliente cancela pedidos</label>
+        <label><input type="checkbox" checked={Boolean(form.allowCustomerRefundRequest)} onChange={(event) => setForm({ ...form, allowCustomerRefundRequest: event.target.checked })} /> Cliente solicita estorno</label>
         <label>Senha extra atual<input type="password" value={form.currentAdminPassword || ''} onChange={(event) => setForm({ ...form, currentAdminPassword: event.target.value })} /></label>
         <button className="primary-button" type="submit">Salvar configuracoes</button>
       </form>

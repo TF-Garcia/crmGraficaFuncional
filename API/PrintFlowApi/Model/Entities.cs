@@ -257,6 +257,10 @@ public class SystemSettings
     [MaxLength(300)] public string? AdminActionPasswordHash { get; set; }
     public bool AutoStockDeductionEnabled { get; set; }
     public OrderStatus StockDeductionTriggerStatus { get; set; } = OrderStatus.InProduction;
+    public bool AllowCustomerQuoteEdit { get; set; } = true;
+    public bool AllowCustomerOrderEdit { get; set; }
+    public bool AllowCustomerOrderCancellation { get; set; } = true;
+    public bool AllowCustomerRefundRequest { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

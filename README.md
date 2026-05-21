@@ -37,14 +37,13 @@ npm run build
 - Catalogo e orcamento calculados pela API.
 - Criacao de orcamentos salvos e pedidos reais no MySQL.
 - Area do cliente com pedidos, orcamentos e perfil editavel.
-- Painel admin com dashboard, pedidos, clientes, estoque, producao, pagamentos manuais e configuracoes.
-- Estrutura de pagamento preparada, sem gateway real nesta etapa.
+- Painel admin com dashboard, pedidos, clientes, produtos, estoque, producao, pagamentos e configuracoes.
+- Pagamento Pix e cartao integrados ao Mercado Pago; pagamento no balcao confirmado direto.
 
 ## Pontos pendentes
 
 - Upload de arte ainda registra apenas o nome do arquivo; storage privado fica para a proxima etapa.
-- CRUD visual completo de produtos/regras de orcamento ainda sera expandido; o catalogo ja vem do banco.
-- Pagamento Pix/cartao ainda nao integra gateway, apenas registra status/metodo para etapa futura.
+- Para Mercado Pago em producao, configurar `MercadoPago__PublicKey`, `MercadoPago__AccessToken` e webhook publico na API.
 
 ## Backend
 

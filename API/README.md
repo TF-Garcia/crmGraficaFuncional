@@ -161,6 +161,10 @@ Para a primeira subida, normalmente nao precisa importar dump: o schema e o seed
 - `POST /api/orcamentos/{id}/converter`
 - `POST /api/pedidos`
 - `GET /api/pedidos/meus`
+- `GET /api/pagamentos/mercado-pago/config`
+- `POST /api/pagamentos/{orderId}/pix`
+- `POST /api/pagamentos/{orderId}/cartao`
+- `POST /api/pagamentos/webhook/mercado-pago`
 - `POST /api/pagamentos/{orderId}/confirmar-manual`
 - `GET /api/admin/dashboard`
 - `GET /api/admin/pedidos`
@@ -172,4 +176,35 @@ Para a primeira subida, normalmente nao precisa importar dump: o schema e o seed
 
 ## Pagamentos
 
-Nao ha gateway ativo nesta etapa. A tabela de pagamentos existe e o admin/financeiro pode confirmar pagamento manualmente. Pix/cartao ficam apenas como metodos preparados para integracao futura.
+Pix e cartao foram integrados com Mercado Pago via API.
+
+Configure as credenciais da sua aplicacao Mercado Pago:
+
+```bash
+MercadoPago__PublicKey=TEST-sua-public-key
+MercadoPago__AccessToken=TEST-seu-access-token
+MercadoPago__NotificationUrl=https://api.seu-dominio.com.br/api/pagamentos/webhook/mercado-pago
+MercadoPago__PixExpirationMinutes=30
+```
+
+Na VPS com Docker, use as variaveis equivalentes no `.env.vps`:
+
+```bash
+MERCADOPAGO_PUBLIC_KEY=TEST-sua-public-key
+MERCADOPAGO_ACCESS_TOKEN=TEST-seu-access-token
+MERCADOPAGO_NOTIFICATION_URL=https://api.seu-dominio.com.br/api/pagamentos/webhook/mercado-pago
+MERCADOPAGO_PIX_EXPIRATION_MINUTES=30
+```
+
+No painel do Mercado Pago, cadastre o webhook apontando para:
+
+```text
+https://api.seu-dominio.com.br/api/pagamentos/webhook/mercado-pago
+```
+
+Fluxo atual:
+
+- Pedido em Pix fica pendente ate o cliente gerar/pagar o QR Code.
+- Pedido em cartao usa o Card Payment Brick oficial do Mercado Pago e envia apenas o token do cartao para a API.
+- Pedido pago no balcao continua entrando como pago direto.
+- O webhook atualiza o status do pedido quando o Mercado Pago aprova, recusa, cancela ou estorna.

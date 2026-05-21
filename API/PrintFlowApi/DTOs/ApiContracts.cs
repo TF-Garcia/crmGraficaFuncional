@@ -9,7 +9,8 @@ public record RegisterRequest(
     [param: Required, Phone, StringLength(30)] string Phone,
     [param: StringLength(30)] string? Document,
     [param: StringLength(260)] string? Address,
-    [param: Required, StringLength(100, MinimumLength = 8)] string Password);
+    [param: Required, StringLength(100, MinimumLength = 8)] string Password,
+    [param: Required, StringLength(100, MinimumLength = 8)] string ConfirmPassword);
 
 public record LoginRequest(
     [param: Required, EmailAddress, StringLength(180)] string Email,
@@ -56,6 +57,31 @@ public record ProductResponse(
     IReadOnlyList<ProductOptionResponse> PrintModes,
     IReadOnlyList<ProductOptionResponse> Finishings);
 
+public record UpsertProductOptionRequest(
+    [param: Required, StringLength(120)] string Name,
+    decimal Price,
+    int Days);
+
+public record UpsertProductRequest(
+    [param: Required, StringLength(90)] string Slug,
+    [param: Required, StringLength(140)] string Name,
+    [param: Required, StringLength(90)] string Category,
+    [param: Required, StringLength(900)] string Description,
+    [param: Required, StringLength(900)] string ImageUrl,
+    [param: Range(0, 1000000)] decimal BasePrice,
+    [param: Range(1, 365)] int BaseDeadline,
+    bool AllowUpload,
+    bool AllowPickup,
+    bool AllowDelivery,
+    bool AllowPickupPayment,
+    bool RequiresAdvancePayment,
+    bool Active,
+    IReadOnlyList<int> Quantities,
+    IReadOnlyList<UpsertProductOptionRequest> Sizes,
+    IReadOnlyList<UpsertProductOptionRequest> Materials,
+    IReadOnlyList<UpsertProductOptionRequest> PrintModes,
+    IReadOnlyList<UpsertProductOptionRequest> Finishings);
+
 public record QuoteRequest(
     Guid ProductId,
     [param: Range(1, 100000)] int Quantity,
@@ -83,11 +109,19 @@ public record CreateQuoteRequest(
 public record QuoteSavedResponse(
     Guid Id,
     string Number,
+    Guid ProductId,
     string ProductName,
     int Quantity,
+    string Size,
+    string Material,
+    string PrintMode,
+    string Finishing,
+    string Urgency,
+    string Delivery,
     string Status,
     decimal Total,
     int EstimatedDays,
+    string? Notes,
     DateTime ExpiresAt,
     DateTime CreatedAt);
 
@@ -110,17 +144,51 @@ public record OrderResponse(
     Guid Id,
     string Number,
     string CustomerName,
+    Guid ProductId,
     string ProductName,
     int Quantity,
+    string Size,
+    string Material,
+    string PrintMode,
+    string Finishing,
+    string Urgency,
+    string Delivery,
     string Status,
     string PaymentStatus,
     string PaymentMethod,
     decimal Total,
     DateTime? Deadline,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? Notes);
 
 public record UpdateOrderStatusRequest(OrderStatus Status, [param: StringLength(1000)] string? InternalNotes, string? AdminPassword);
 public record ConfirmManualPaymentRequest(string? TransactionId, string? ReceiptUrl, string? AdminPassword);
+
+public record PaymentPublicConfigResponse(string PublicKey, bool Enabled);
+
+public record PixPaymentResponse(
+    Guid OrderId,
+    string Status,
+    string? MercadoPagoPaymentId,
+    string? QrCode,
+    string? QrCodeBase64,
+    string? TicketUrl);
+
+public record CardPaymentRequest(
+    [param: Required, StringLength(140)] string Token,
+    [param: Required, StringLength(80)] string PaymentMethodId,
+    int? IssuerId,
+    [param: Range(1, 24)] int Installments,
+    [param: Required, EmailAddress, StringLength(180)] string PayerEmail,
+    [param: StringLength(30)] string? IdentificationType,
+    [param: StringLength(40)] string? IdentificationNumber);
+
+public record MercadoPagoPaymentResponse(
+    Guid OrderId,
+    string Status,
+    string PaymentStatus,
+    string? MercadoPagoPaymentId,
+    string? StatusDetail);
 
 public record InventoryItemResponse(Guid Id, string Name, string Category, decimal Available, string Unit, decimal Minimum, string Supplier, decimal UnitCost, bool Active);
 public record StockMovementRequest(Guid InventoryItemId, [param: Required, StringLength(30)] string Type, [param: Range(0.01, 1000000)] decimal Quantity, [param: Required, StringLength(300)] string Reason, Guid? OrderId, string? AdminPassword);
@@ -133,7 +201,11 @@ public record SystemSettingsResponse(
     bool RequireAdminPasswordForSensitiveActions,
     bool HasAdminActionPassword,
     bool AutoStockDeductionEnabled,
-    string StockDeductionTriggerStatus);
+    string StockDeductionTriggerStatus,
+    bool AllowCustomerQuoteEdit,
+    bool AllowCustomerOrderEdit,
+    bool AllowCustomerOrderCancellation,
+    bool AllowCustomerRefundRequest);
 
 public record UpdateSystemSettingsRequest(
     [param: Required, StringLength(140)] string CompanyName,
@@ -143,4 +215,8 @@ public record UpdateSystemSettingsRequest(
     [param: StringLength(100, MinimumLength = 8)] string? AdminActionPassword,
     bool AutoStockDeductionEnabled,
     OrderStatus StockDeductionTriggerStatus,
+    bool AllowCustomerQuoteEdit,
+    bool AllowCustomerOrderEdit,
+    bool AllowCustomerOrderCancellation,
+    bool AllowCustomerRefundRequest,
     string? CurrentAdminPassword);

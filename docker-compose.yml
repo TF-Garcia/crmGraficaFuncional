@@ -37,6 +37,10 @@ services:
       Jwt__Secret: ${JWT_SECRET}
       Cors__Origins__0: ${FRONTEND_URL}
       FrontendUrl: ${FRONTEND_URL}
+      MercadoPago__PublicKey: ${MERCADOPAGO_PUBLIC_KEY}
+      MercadoPago__AccessToken: ${MERCADOPAGO_ACCESS_TOKEN}
+      MercadoPago__NotificationUrl: ${MERCADOPAGO_NOTIFICATION_URL}
+      MercadoPago__PixExpirationMinutes: ${MERCADOPAGO_PIX_EXPIRATION_MINUTES:-30}
       Smtp__Host: ${SMTP_HOST}
       Smtp__Port: ${SMTP_PORT}
       Smtp__User: ${SMTP_USER}

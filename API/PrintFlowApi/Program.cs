@@ -33,6 +33,7 @@ builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<QuoteService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<SecurityService>();
+builder.Services.AddScoped<MercadoPagoPaymentService>();
 
 var jwtSecret = builder.Configuration["Jwt:Secret"];
 if (string.IsNullOrWhiteSpace(jwtSecret))

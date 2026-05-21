@@ -16,6 +16,11 @@ public class AuthController(PrintFlowDbContext db, JwtTokenService jwtTokenServi
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
+        if (request.Password != request.ConfirmPassword)
+        {
+            return BadRequest(new { message = "As senhas nao conferem." });
+        }
+
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(user => user.Email == email, cancellationToken))
         {

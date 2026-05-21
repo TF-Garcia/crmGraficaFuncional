@@ -634,5 +634,41 @@ DELIMITER ;
 CALL MigrationsScript();
 DROP PROCEDURE MigrationsScript;
 
-COMMIT;
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260521124827_CustomerSelfServiceSettings') THEN
 
+    ALTER TABLE `SystemSettings` ADD `AllowCustomerOrderCancellation` tinyint(1) NOT NULL DEFAULT FALSE;
+    ALTER TABLE `SystemSettings` ADD `AllowCustomerOrderEdit` tinyint(1) NOT NULL DEFAULT FALSE;
+    ALTER TABLE `SystemSettings` ADD `AllowCustomerQuoteEdit` tinyint(1) NOT NULL DEFAULT FALSE;
+    ALTER TABLE `SystemSettings` ADD `AllowCustomerRefundRequest` tinyint(1) NOT NULL DEFAULT FALSE;
+
+    UPDATE SystemSettings
+    SET AllowCustomerQuoteEdit = 1,
+        AllowCustomerOrderCancellation = 1;
+
+    UPDATE Orders
+    SET PaymentStatus = 2,
+        Status = 2
+    WHERE PaymentMethod = 2
+      AND PaymentStatus = 1;
+
+    UPDATE Payments
+    SET Status = 2,
+        PaidAt = COALESCE(PaidAt, UTC_TIMESTAMP()),
+        UpdatedAt = UTC_TIMESTAMP()
+    WHERE Method = 2
+      AND Status = 1;
+
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+    VALUES ('20260521124827_CustomerSelfServiceSettings', '9.0.16');
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+COMMIT;

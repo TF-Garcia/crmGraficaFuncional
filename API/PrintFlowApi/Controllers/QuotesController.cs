@@ -134,8 +134,8 @@ public class QuotesController(PrintFlowDbContext db, QuoteService quoteService) 
             Urgency = quote.Urgency,
             DeliveryMode = quote.DeliveryMode,
             PaymentMethod = request.PaymentMethod,
-            PaymentStatus = request.PaymentMethod == PaymentMethod.Pickup ? PaymentStatus.CounterPayment : PaymentStatus.Pending,
-            Status = request.PaymentMethod == PaymentMethod.Pickup ? OrderStatus.WaitingArtwork : OrderStatus.WaitingPayment,
+            PaymentStatus = request.PaymentMethod == PaymentMethod.Pickup ? PaymentStatus.Paid : PaymentStatus.Pending,
+            Status = request.PaymentMethod == PaymentMethod.Pickup ? OrderStatus.PaymentConfirmed : OrderStatus.WaitingPayment,
             Subtotal = quote.Subtotal,
             UrgencyFee = quote.UrgencyFee,
             DeliveryFee = quote.DeliveryFee,
@@ -161,6 +161,58 @@ public class QuotesController(PrintFlowDbContext db, QuoteService quoteService) 
         return Ok(OrdersController.ToResponse(order));
     }
 
+    [Authorize]
+    [HttpPut("{id:guid}")]
+    [EnableRateLimiting("write")]
+    public async Task<ActionResult<QuoteSavedResponse>> UpdateQuote(Guid id, CreateQuoteRequest request, CancellationToken cancellationToken)
+    {
+        var settings = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+        if (settings is null || !settings.AllowCustomerQuoteEdit)
+        {
+            return Forbid();
+        }
+
+        var userId = User.GetUserId();
+        var entity = await db.Quotes.FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId, cancellationToken);
+        if (entity is null)
+        {
+            return NotFound(new { message = "Orcamento nao encontrado." });
+        }
+
+        if (entity.Status == QuoteStatus.ConvertedToOrder)
+        {
+            return BadRequest(new { message = "Orcamento convertido nao pode ser editado." });
+        }
+
+        var product = await db.Products.Include(item => item.Options).FirstOrDefaultAsync(item => item.Id == request.ProductId && item.Active, cancellationToken);
+        if (product is null)
+        {
+            return NotFound(new { message = "Produto nao encontrado." });
+        }
+
+        var quote = quoteService.Calculate(product, new QuoteRequest(request.ProductId, request.Quantity, request.Size, request.Material, request.PrintMode, request.Finishing, request.Urgency, request.Delivery));
+        entity.ProductId = product.Id;
+        entity.Quantity = request.Quantity;
+        entity.Size = request.Size;
+        entity.Material = request.Material;
+        entity.PrintMode = request.PrintMode;
+        entity.Finishing = request.Finishing;
+        entity.Urgency = request.Urgency;
+        entity.DeliveryMode = request.Delivery;
+        entity.Status = request.Draft ? QuoteStatus.Draft : QuoteStatus.Saved;
+        entity.Subtotal = quote.Subtotal;
+        entity.UrgencyFee = quote.UrgencyFee;
+        entity.DeliveryFee = quote.DeliveryFee;
+        entity.Total = quote.Total;
+        entity.EstimatedDays = quote.EstimatedDays;
+        entity.Notes = request.Notes;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+
+        entity.Product = product;
+        return Ok(ToResponse(entity));
+    }
+
     private async Task<string> NextQuoteNumberAsync(CancellationToken cancellationToken)
     {
         var count = await db.Quotes.CountAsync(cancellationToken);
@@ -178,11 +230,19 @@ public class QuotesController(PrintFlowDbContext db, QuoteService quoteService) 
         return new QuoteSavedResponse(
             quote.Id,
             quote.Number,
+            quote.ProductId,
             quote.Product?.Name ?? string.Empty,
             quote.Quantity,
+            quote.Size,
+            quote.Material,
+            quote.PrintMode,
+            quote.Finishing,
+            quote.Urgency,
+            quote.DeliveryMode.ToString(),
             quote.Status.ToString(),
             quote.Total,
             quote.EstimatedDays,
+            quote.Notes,
             quote.ExpiresAt,
             quote.CreatedAt);
     }

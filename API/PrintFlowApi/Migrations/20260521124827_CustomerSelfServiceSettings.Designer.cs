@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PrintFlowApi.Data;
 
@@ -11,9 +12,11 @@ using PrintFlowApi.Data;
 namespace PrintFlowApi.Migrations
 {
     [DbContext(typeof(PrintFlowDbContext))]
-    partial class PrintFlowDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521124827_CustomerSelfServiceSettings")]
+    partial class CustomerSelfServiceSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
