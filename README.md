@@ -35,7 +35,7 @@ npm run build
 - Cadastro/login reais com JWT.
 - Recuperacao de senha por email SMTP.
 - Catalogo e orcamento calculados pela API.
-- Criacao de orcamentos salvos e pedidos reais no MySQL.
+- Criacao de orcamentos salvos e pedidos persistidos em SQLite para demo/modelo.
 - Area do cliente com pedidos, orcamentos e perfil editavel.
 - Painel admin com dashboard, pedidos, clientes, produtos, estoque, producao, pagamentos e configuracoes.
 - Pagamento Pix e cartao integrados ao Mercado Pago; pagamento no balcao confirmado direto.
@@ -50,10 +50,10 @@ npm run build
 Foi criada a API em `API/PrintFlowApi`, seguindo a organizacao do BarberStyle:
 
 - ASP.NET Core com controllers REST.
-- Entity Framework com MySQL real via Pomelo.
-- Migrations em `API/PrintFlowApi/Migrations`.
+- Entity Framework com SQLite.
+- Banco criado automaticamente pelo modelo atual no startup.
 - Seed inicial de admin, cliente, catalogo, estoque e configuracoes.
 - JWT para cliente/admin e estrutura para producao/atendimento/financeiro.
 - Endpoints para catalogo, calculo de orcamento, pedidos, admin, estoque, configuracoes, pagamento manual e recuperacao de senha.
 
-Veja `API/README.md` para criar o banco MySQL local, aplicar migrations e configurar VPS/Hostinger.
+Veja `API/README.md` para configurar SQLite, VPS/Hostinger e Vercel.

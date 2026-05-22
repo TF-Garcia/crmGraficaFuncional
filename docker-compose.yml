@@ -1,37 +1,14 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: printflow-mysql
-    restart: unless-stopped
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    volumes:
-      - printflow_mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - printflow_net
-
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: printflow-api
     restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       PORT: 8080
-      ConnectionStrings__DefaultConnection: "Server=mysql;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD};TreatTinyAsBoolean=true;"
+      ConnectionStrings__DefaultConnection: "Data Source=/app/data/printflow-demo.db"
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__Secret: ${JWT_SECRET}
@@ -50,12 +27,8 @@ services:
       Smtp__EnableSsl: ${SMTP_ENABLE_SSL}
     ports:
       - "${API_PORT:-8080}:8080"
-    networks:
-      - printflow_net
+    volumes:
+      - printflow_sqlite_data:/app/data
 
 volumes:
-  printflow_mysql_data:
-
-networks:
-  printflow_net:
-    driver: bridge
+  printflow_sqlite_data:

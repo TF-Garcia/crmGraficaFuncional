@@ -21,12 +21,13 @@ builder.Services.AddEndpointsApiExplorer();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("Configure ConnectionStrings:DefaultConnection com uma conexao MySQL.");
+    throw new InvalidOperationException("Configure ConnectionStrings:DefaultConnection com uma conexao SQLite.");
 }
 
 builder.Services.AddDbContext<PrintFlowDbContext>(options =>
 {
-    options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)));
+    EnsureSqliteDirectory(connectionString);
+    options.UseSqlite(connectionString);
 });
 
 builder.Services.AddScoped<JwtTokenService>();
@@ -149,4 +150,29 @@ static string ClientKey(HttpContext context)
     return string.IsNullOrWhiteSpace(forwardedFor)
         ? context.Connection.RemoteIpAddress?.ToString() ?? "unknown"
         : forwardedFor.Split(',')[0].Trim();
+}
+
+static void EnsureSqliteDirectory(string connectionString)
+{
+    const string prefix = "Data Source=";
+    var dataSource = connectionString
+        .Split(';', StringSplitOptions.RemoveEmptyEntries)
+        .FirstOrDefault(part => part.TrimStart().StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+    if (dataSource is null)
+    {
+        return;
+    }
+
+    var path = dataSource[(dataSource.IndexOf('=') + 1)..].Trim();
+    if (string.IsNullOrWhiteSpace(path) || path.Equals(":memory:", StringComparison.OrdinalIgnoreCase))
+    {
+        return;
+    }
+
+    var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+    if (!string.IsNullOrWhiteSpace(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
 }
